@@ -88,8 +88,9 @@ class CheckinCalendarPlugin(Star):
             if result.replay:
                 message = "这条消息已处理，未重复计数或撤销"
             if result.status == "cooldown":
-                # 冷却只发送文字，并禁用宿主自动文转图；不读取月历或调用渲染器。
-                yield event.make_result().message(message).use_t2i(False)
+                # 冷却艾特当前发送者并回复文字，禁用自动文转图，不读取或渲染月历。
+                name = clean_name(event.get_sender_name() or "我")
+                yield event.make_result().at(name, user).message("\n" + message).use_t2i(False)
                 return
         try:
             snapshot = await asyncio.to_thread(self.store.month, actor, month)

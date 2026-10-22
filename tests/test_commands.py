@@ -92,7 +92,7 @@ async def test_groups_share_user_record_bots_and_platforms_are_isolated(plugin):
     await replies(plugin, event("m1", session="group-a"))
     second = await replies(plugin, event("m2", session="group-b"))
     assert plugin.html_render.call_args.args[1]["total"] == 1
-    assert "每120分钟只能记录一次哦" in second[0].chain[0].text
+    assert "每120分钟只能记录一次哦" in second[0].chain[-1].text
     for kwargs in ({"user": "bob"}, {"bot": "bot2"}, {"platform": "qq-2"}):
         await replies(plugin, event(**kwargs), "月历")
         assert plugin.html_render.call_args.args[1]["total"] == 0
@@ -157,9 +157,10 @@ async def test_interval_uses_exact_requested_prompt_without_increment(plugin):
     response = (await replies(plugin, event("two")))[0]
     data = plugin.html_render.call_args.args[1]
     assert data["total"] == 1
-    assert [type(item) for item in response.chain] == [Plain]
-    assert "注意身体，歇会儿吧！（每120分钟只能记录一次哦）" in response.chain[0].text
-    assert "还需等待" in response.chain[0].text
+    assert [type(item) for item in response.chain] == [At, Plain]
+    assert response.chain[0].toDict() == {"type": "at", "data": {"qq": "alice"}}
+    assert response.chain[1].text.startswith("\n注意身体，歇会儿吧！（每120分钟只能记录一次哦）")
+    assert "还需等待" in response.chain[1].text
     assert data["heading"] == "测试用户本月的🦌馆足迹"
     assert response.use_t2i_ is False
 
@@ -171,8 +172,10 @@ async def test_cooldown_skips_renderer_and_snapshot_entirely(plugin):
     plugin.html_render.side_effect = RuntimeError("模拟图片失败")
     plugin.store.month = Mock(side_effect=AssertionError("冷却不应读取月历"))
     result = (await replies(plugin, event("two")))[0]
-    assert "每120分钟只能记录一次哦" in result.chain[0].text
-    assert "记录成功" not in result.chain[0].text
+    assert [type(item) for item in result.chain] == [At, Plain]
+    assert result.chain[0].toDict() == {"type": "at", "data": {"qq": "alice"}}
+    assert "每120分钟只能记录一次哦" in result.chain[1].text
+    assert "记录成功" not in result.chain[1].text
     plugin.html_render.assert_not_awaited()
     plugin.store.month.assert_not_called()
 
@@ -195,7 +198,8 @@ async def test_replayed_cooldown_remains_text_and_does_not_render(plugin):
     await replies(plugin, event("two"))
     plugin.html_render.reset_mock()
     response = (await replies(plugin, event("two")))[0]
-    assert [type(item) for item in response.chain] == [Plain]
+    assert [type(item) for item in response.chain] == [At, Plain]
+    assert response.chain[0].toDict() == {"type": "at", "data": {"qq": "alice"}}
     assert response.use_t2i_ is False
     plugin.html_render.assert_not_awaited()
 
