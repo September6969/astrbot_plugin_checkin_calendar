@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
+from astrbot.api.message_components import At, Image, Plain
+from astrbot.core.message.message_event_result import MessageEventResult
 
 from astrbot_plugin_checkin_calendar.main import CheckinCalendarPlugin
 from astrbot_plugin_checkin_calendar.store import CalendarStore
@@ -31,6 +33,7 @@ def event(message="1", user="alice", bot="bot1", platform="qq-1", session="group
         get_platform_id=lambda: platform, get_self_id=lambda: bot,
         get_sender_id=lambda: user, get_sender_name=lambda: "测试用户",
         plain_result=lambda text: ("text", text), image_result=lambda path: ("image", path),
+        make_result=MessageEventResult,
     )
 
 
@@ -41,7 +44,9 @@ async def replies(plugin, e, action="", value=""):
 
 @pytest.mark.asyncio
 async def test_add_query_undo_and_replayed_delivery(plugin):
-    assert await replies(plugin, event()) == [("image", "rendered.png")]
+    result = (await replies(plugin, event()))[0]
+    assert [type(item) for item in result.chain] == [At, Plain, Image]
+    assert result.chain[0].qq == "alice"
     assert plugin.html_render.call_args.args[1]["total"] == 1
     await replies(plugin, event())
     assert plugin.html_render.call_args.args[1]["total"] == 1
@@ -80,9 +85,9 @@ async def test_cancellation_propagates_but_message_cannot_duplicate_write(plugin
 @pytest.mark.asyncio
 async def test_groups_share_user_record_bots_and_platforms_are_isolated(plugin):
     await replies(plugin, event("m1", session="group-a"))
-    await replies(plugin, event("m2", session="group-b"))
+    second = await replies(plugin, event("m2", session="group-b"))
     assert plugin.html_render.call_args.args[1]["total"] == 1
-    assert "每120分钟只能记录一次哦" in plugin.html_render.call_args.args[1]["message"]
+    assert "每120分钟只能记录一次哦" in second[0].chain[0].text
     for kwargs in ({"user": "bob"}, {"bot": "bot2"}, {"platform": "qq-2"}):
         await replies(plugin, event(**kwargs), "月历")
         assert plugin.html_render.call_args.args[1]["total"] == 0
@@ -144,19 +149,47 @@ async def test_emoji_arguments_and_extra_tokens_are_read_only(plugin):
 @pytest.mark.asyncio
 async def test_interval_uses_exact_requested_prompt_without_increment(plugin):
     await replies(plugin, event("one"))
-    await replies(plugin, event("two"))
+    response = (await replies(plugin, event("two")))[0]
     data = plugin.html_render.call_args.args[1]
     assert data["total"] == 1
-    assert "注意身体，歇会儿吧！（每120分钟只能记录一次哦）" in data["message"]
-    assert "还需等待" in data["message"]
+    assert [type(item) for item in response.chain] == [Plain]
+    assert "注意身体，歇会儿吧！（每120分钟只能记录一次哦）" in response.chain[0].text
+    assert "还需等待" in response.chain[0].text
     assert data["heading"] == "测试用户本月的🦌馆足迹"
+    assert response.use_t2i_ is False
 
 
 @pytest.mark.asyncio
-async def test_cooldown_text_fallback_never_claims_saved(plugin):
+async def test_cooldown_skips_renderer_and_snapshot_entirely(plugin):
     await replies(plugin, event("one"))
+    plugin.html_render.reset_mock()
     plugin.html_render.side_effect = RuntimeError("模拟图片失败")
-    result = await replies(plugin, event("two"))
-    assert "每120分钟只能记录一次哦" in result[0][1]
-    assert "累计 1 次" in result[0][1]
-    assert "记录成功" not in result[0][1]
+    plugin.store.month = Mock(side_effect=AssertionError("冷却不应读取月历"))
+    result = (await replies(plugin, event("two")))[0]
+    assert "每120分钟只能记录一次哦" in result.chain[0].text
+    assert "记录成功" not in result.chain[0].text
+    plugin.html_render.assert_not_awaited()
+    plugin.store.month.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action,value", [("", ""), ("月历", ""), ("月历", "2026-08"), ("状态", ""), ("撤销", "")])
+@pytest.mark.parametrize("image", ["https://example.invalid/calendar.png", "rendered.png"])
+async def test_calendar_mentions_exact_sender_with_image_in_same_chain(plugin, action, value, image):
+    plugin.html_render.return_value = image
+    result = (await replies(plugin, event(user="123456789"), action, value))[0]
+    assert [type(item) for item in result.chain] == [At, Plain, Image]
+    assert result.chain[0].toDict() == {"type": "at", "data": {"qq": "123456789"}}
+    assert result.chain[1].text == "\n"
+    assert result.use_t2i_ is False
+
+
+@pytest.mark.asyncio
+async def test_replayed_cooldown_remains_text_and_does_not_render(plugin):
+    await replies(plugin, event("one"))
+    await replies(plugin, event("two"))
+    plugin.html_render.reset_mock()
+    response = (await replies(plugin, event("two")))[0]
+    assert [type(item) for item in response.chain] == [Plain]
+    assert response.use_t2i_ is False
+    plugin.html_render.assert_not_awaited()

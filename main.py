@@ -14,7 +14,7 @@ from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools
 
-from .presentation import parse_month, payload, text_summary
+from .presentation import clean_name, parse_month, payload, text_summary
 from .store import CalendarStore
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
@@ -84,6 +84,10 @@ class CheckinCalendarPlugin(Star):
                 message = {"added": "记录成功", "undone": "已撤销今天最近一次", "empty": "今天没有可撤销的记录"}[result.status]
             if result.replay:
                 message = "这条消息已处理，未重复计数或撤销"
+            if result.status == "cooldown":
+                # 冷却只发送文字，并禁用宿主自动文转图；不读取月历或调用渲染器。
+                yield event.make_result().message(message).use_t2i(False)
+                return
         try:
             snapshot = await asyncio.to_thread(self.store.month, actor, month)
         except (sqlite3.Error, OSError):
@@ -100,4 +104,6 @@ class CheckinCalendarPlugin(Star):
             logger.warning("[打卡月历] 图片生成失败：%s", type(exc).__name__)
             yield event.plain_result(fallback)
             return
-        yield event.image_result(image)
+        # 原生艾特放在图片之前，使用平台用户 ID，避免昵称同名造成误艾特。
+        reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
+        yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
