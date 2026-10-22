@@ -93,7 +93,7 @@ class CheckinCalendarPlugin(Star):
         name = event.get_sender_name() or "我"
         fallback = text_summary(snapshot, name, self.timezone_name, message)
         try:
-            image = await asyncio.wait_for(self.html_render(self.template, payload(snapshot, name, now.date(), self.timezone_name, message), options={"type": "png", "full_page": True, "viewport": {"width": 720, "height": 1}, "animations": "disabled"}), timeout=30)
+            image = await asyncio.wait_for(self.html_render(self.template, payload(snapshot, name, now.date(), self.timezone_name, message), options={"type": "png", "quality": None, "full_page": True, "viewport": {"width": 720, "height": 1}, "animations": "disabled"}), timeout=30)
             if not isinstance(image, str) or not image.strip():
                 raise ValueError("渲染器未返回图片")
         except Exception as exc:

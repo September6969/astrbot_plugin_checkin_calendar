@@ -18,7 +18,7 @@ jobs:
       matrix:
         python: ["3.12", "3.13"]
     env:
-      ASTRBOT_ROOT: ${{ runner.temp }}/checkin-calendar-astrbot
+      ASTRBOT_ROOT: /tmp/checkin-calendar-astrbot
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
