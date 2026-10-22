@@ -14,6 +14,7 @@ from astrbot.core.message.message_event_result import MessageEventResult
 
 from astrbot_plugin_checkin_calendar.main import CheckinCalendarPlugin
 from astrbot_plugin_checkin_calendar.store import CalendarStore
+from astrbot_plugin_checkin_calendar.rendering import CalendarRenderer
 
 
 @pytest.fixture
@@ -24,6 +25,7 @@ def plugin(tmp_path):
     instance.timezone = ZoneInfo(instance.timezone_name)
     instance.template = (Path(__file__).parents[1] / "templates/calendar.html").read_text(encoding="utf-8")
     instance.html_render = AsyncMock(return_value="rendered.png")
+    instance.calendar_renderer = CalendarRenderer(instance.html_render, None)
     return instance
 
 
@@ -61,7 +63,10 @@ async def test_add_query_undo_and_replayed_delivery(plugin):
 async def test_render_failure_preserves_saved_record_and_text(plugin):
     plugin.html_render.side_effect = RuntimeError("模拟渲染失败")
     result = await replies(plugin, event())
-    assert result[0][0] == "text" and "累计 1 次" in result[0][1]
+    assert [type(item) for item in result[0].chain] == [Plain]
+    assert "累计 1 次" in result[0].chain[0].text
+    assert "图片暂时生成失败" in result[0].chain[0].text
+    assert result[0].use_t2i_ is False
     await replies(plugin, event())
     assert plugin.store.month('["qq-1", "bot1", "alice"]', datetime.now(plugin.timezone).strftime("%Y-%m")).total == 1
 
@@ -69,7 +74,7 @@ async def test_render_failure_preserves_saved_record_and_text(plugin):
 @pytest.mark.asyncio
 async def test_empty_render_path_uses_text(plugin):
     plugin.html_render.return_value = ""
-    assert (await replies(plugin, event()))[0][0] == "text"
+    assert "图片暂时生成失败" in (await replies(plugin, event()))[0].chain[0].text
 
 
 @pytest.mark.asyncio
@@ -192,4 +197,29 @@ async def test_replayed_cooldown_remains_text_and_does_not_render(plugin):
     response = (await replies(plugin, event("two")))[0]
     assert [type(item) for item in response.chain] == [Plain]
     assert response.use_t2i_ is False
+    plugin.html_render.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_endpoint_retry_only_renders_same_snapshot_and_writes_once(plugin):
+    class Strategy:
+        endpoints = ['slow', 'healthy']
+        calls = []
+
+        async def render_custom_template(self, template, data, return_url, options):
+            self.calls.append((self.endpoints[0], data))
+            if self.endpoints == ['slow']:
+                await asyncio.Event().wait()
+            return 'rendered.png'
+
+    strategy = Strategy()
+    plugin.calendar_renderer = CalendarRenderer(plugin.html_render, strategy, endpoint_timeout=0.01)
+    change = plugin.store.change
+    plugin.store.change = Mock(wraps=change)
+    response = (await replies(plugin, event()))[0]
+    assert [type(item) for item in response.chain] == [At, Plain, Image]
+    assert [endpoint for endpoint, _ in strategy.calls] == ['slow', 'healthy']
+    assert strategy.calls[0][1] is strategy.calls[1][1]
+    assert strategy.calls[1][1]['total'] == 1
+    assert plugin.store.change.call_count == 1
     plugin.html_render.assert_not_awaited()

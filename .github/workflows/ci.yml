@@ -29,7 +29,7 @@ jobs:
       - name: Run regression tests
         run: python -m pytest -q
       - name: Compile Python sources
-        run: python -m compileall -q main.py store.py presentation.py scripts tests
+        run: python -m compileall -q main.py store.py presentation.py rendering.py scripts tests
       - name: Build installation archive
         run: python scripts/package.py --output dist/astrbot_plugin_checkin_calendar.zip
       - name: Validate installation archive

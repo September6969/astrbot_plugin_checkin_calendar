@@ -15,6 +15,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, StarTools
 
 from .presentation import clean_name, parse_month, payload, text_summary
+from .rendering import CalendarRenderer
 from .store import CalendarStore
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
@@ -28,6 +29,8 @@ class CheckinCalendarPlugin(Star):
         self.timezone = ZoneInfo(self.timezone_name)
         self.store = CalendarStore(StarTools.get_data_dir("astrbot_plugin_checkin_calendar") / "calendar.sqlite3")
         self.template = (Path(__file__).parent / "templates/calendar.html").read_text(encoding="utf-8")
+        from astrbot.core import html_renderer
+        self.calendar_renderer = CalendarRenderer(self.html_render, getattr(html_renderer, "network_strategy", None))
 
     @filter.regex(TRIGGER_PATTERN)
     async def checkin(self, event: AstrMessageEvent):
@@ -97,12 +100,14 @@ class CheckinCalendarPlugin(Star):
         name = event.get_sender_name() or "我"
         fallback = text_summary(snapshot, name, self.timezone_name, message)
         try:
-            image = await asyncio.wait_for(self.html_render(self.template, payload(snapshot, name, now.date(), self.timezone_name, message), options={"type": "png", "quality": None, "full_page": True, "viewport": {"width": 720, "height": 1}, "animations": "disabled"}), timeout=30)
+            data = payload(snapshot, name, now.date(), self.timezone_name, message)
+            options = {"type": "png", "quality": None, "full_page": True, "viewport": {"width": 720, "height": 1}, "animations": "disabled"}
+            image = await asyncio.wait_for(self.calendar_renderer.render(self.template, data, options), timeout=30)
             if not isinstance(image, str) or not image.strip():
                 raise ValueError("渲染器未返回图片")
         except Exception as exc:
             logger.warning("[打卡月历] 图片生成失败：%s", type(exc).__name__)
-            yield event.plain_result(fallback)
+            yield event.make_result().message("月历图片暂时生成失败，可发送 🦌 月历 重试（不会增加次数）。\n" + fallback).use_t2i(False)
             return
         # 原生艾特放在图片之前，使用平台用户 ID，避免昵称同名造成误艾特。
         reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
