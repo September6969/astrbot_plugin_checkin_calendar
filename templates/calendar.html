@@ -1,0 +1,53 @@
+{% autoescape true %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:CalendarSans;src:url('{{ font }}') format('woff2');font-display:block}
+*{box-sizing:border-box}html,body{margin:0;width:720px;background:#fff;color:#262724}
+body{font-family:CalendarSans,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;padding:38px 42px 30px;position:relative;isolation:isolate;overflow:hidden}
+.art-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.watermark{position:absolute;z-index:0;left:-12px;top:45px;bottom:0;transform:translateY(320px);width:380px;pointer-events:none;opacity:.19;mask-image:linear-gradient(to right,#000 0%,#000 58%,transparent 100%)}
+.watermark img{width:100%;height:100%;object-fit:contain;object-position:left bottom;display:block}
+.content{position:relative;z-index:1}
+.status{white-space:pre-line;padding:12px 18px;border-radius:12px;color:#6f5b20;background:#fff7dc;font-size:19px;line-height:1.55;margin-bottom:27px;overflow-wrap:anywhere}
+.heading{display:flex;gap:16px;align-items:center;margin-bottom:26px}
+.mark{width:54px;height:54px;flex:none;border-radius:18px;background:#fff3c9;display:grid;place-items:center}
+.name{font-size:23px;line-height:1.55;font-weight:600;overflow-wrap:anywhere;word-break:break-all;max-width:560px}
+.eyebrow{font-size:15px;color:#95978e;letter-spacing:2px;margin-top:3px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px}
+.stat{padding:18px 16px;background:rgba(247,247,244,.84);border-radius:16px}
+.stat .label{font-size:16px;color:#85877e}.stat strong{display:block;white-space:nowrap;font-size:32px;font-weight:600;margin-top:5px;line-height:1.2;overflow-wrap:anywhere}
+.stat strong small{font-size:16px;font-weight:400;margin-left:4px;color:#777a70}
+.monthbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.monthbar h1{font-size:25px;font-weight:600;margin:0}.monthbar span{font-size:14px;color:#9a9c94}
+.weekdays,.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px}
+.weekdays{margin-bottom:13px;text-align:center;color:#92958b;font-size:17px}.week{margin-bottom:9px}
+.cell{height:76px;position:relative;border-radius:12px;background:rgba(241,242,239,.76);padding:7px 9px;min-width:0}
+.cell.blank{background:transparent}.day{font-size:14px;color:#9c9f95;line-height:1.1;display:block}
+.count{overflow-wrap:anywhere;font-size:25px;font-weight:600;line-height:1.2;display:block;text-align:center;margin-top:5px}
+.cell.future{background:rgba(249,249,247,.76)}.cell.today{outline:2px solid #565b4d;outline-offset:2px}.cell.today .day{font-weight:600;color:#555b4c}
+.level1{background:#fff6b8}.level2{background:#ffe67a}.level3{background:#ffd252}.level4{background:#ffac45}.level5{background:#f67d57}
+.level1 .day,.level2 .day,.level3 .day,.level4 .day,.level5 .day{color:#8e6c1b}
+.level4 .count,.level5 .count{color:#5a3112}.level5 .day{color:#7b3c25}
+.legend{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:23px;color:#a1a398;font-size:13px}
+.swatch{width:15px;height:15px;border-radius:4px;display:inline-block}.zero{background:#f1f2ef}
+.empty{font-size:17px;text-align:center;margin:20px 0 0;color:#979b8d}
+</style>
+</head>
+<body>
+{% if background_art %}<div class="art-layer" aria-hidden="true"><div class="watermark"><img src="{{ background_art }}" alt=""></div></div>{% endif %}
+<main class="content">
+{% if message %}<div class="status">{{ message }}{% if message == '记录成功' %} · 本月第 {{ total }} 次{% endif %}</div>{% endif %}
+<div class="heading"><div class="mark"><svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><path d="M25 6C15 5 6 10 7 20c1 8 10 9 14 3 3-4 4-10 4-17Z" fill="#d7b357"/><path d="M9 27 21 12M14 21l-1-6M17 18l5-1" stroke="#fffdf4" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div><div><div class="name">{{ heading }}</div><div class="eyebrow">打卡月历 · {{ month }}</div></div></div>
+<div class="stats"><div class="stat"><div class="label">本月累计</div><strong style="font-size:{{ total_font }}px">{{ total }}<small>次</small></strong></div><div class="stat"><div class="label">打卡天数</div><strong>{{ active_days }}<small>天</small></strong></div><div class="stat"><div class="label">{{ '今日记录' if current_month else '查看范围' }}</div><strong style="font-size:{{ today_font }}px">{% if current_month %}{{ today_count }}<small>次</small>{% else %}<span style="font-size:22px">整月</span>{% endif %}</strong></div></div>
+<div class="monthbar"><h1>{{ title }}</h1><span>周一开始 · 方框标记今天</span></div>
+<div class="weekdays">{% for day in weekdays %}<div>{{ day }}</div>{% endfor %}</div>
+{% for week in weeks %}<div class="week">{% for cell in week %}<div class="cell {% if not cell.day %}blank{% else %}level{{ cell.level }}{% endif %}{{ ' today' if cell.today else '' }}{{ ' future' if cell.future else '' }}"{% if cell.day %} data-day="{{ cell.day }}" data-count="{{ cell.count }}"{% endif %}>{% if cell.day %}<span class="day">{{ cell.day }}</span>{% if cell.count %}<span class="count" style="font-size:{{ 12 if cell.count >= 1000000 else 16 if cell.count >= 1000 else 25 }}px">{{ cell.count }}</span>{% endif %}{% endif %}</div>{% endfor %}</div>{% endfor %}
+<div class="legend"><span>0 次</span><i class="swatch zero"></i><i class="swatch level1"></i><i class="swatch level2"></i><i class="swatch level3"></i><i class="swatch level4"></i><i class="swatch level5"></i><span>5 次及以上</span></div>
+{% if not total %}<p class="empty">这个月还没有记录，从一次打卡开始。</p>{% endif %}
+</main>
+</body>
+</html>
+{% endautoescape %}

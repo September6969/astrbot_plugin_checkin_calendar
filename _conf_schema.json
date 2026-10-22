@@ -1,0 +1,8 @@
+{
+  "timezone": {
+    "description": "打卡日期使用的时区",
+    "type": "string",
+    "default": "Asia/Shanghai",
+    "hint": "默认北京时间，可填写 America/Los_Angeles 等 IANA 时区名。已有记录的日期不会随配置修改而移动。"
+  }
+}
