@@ -30,7 +30,8 @@ class CheckinCalendarPlugin(Star):
         self.store = CalendarStore(StarTools.get_data_dir("astrbot_plugin_checkin_calendar") / "calendar.sqlite3")
         self.template = (Path(__file__).parent / "templates/calendar.html").read_text(encoding="utf-8")
         from astrbot.core import html_renderer
-        self.calendar_renderer = CalendarRenderer(self.html_render, getattr(html_renderer, "network_strategy", None))
+        self.calendar_renderer = CalendarRenderer(self.html_render, getattr(html_renderer, "network_strategy", None),
+                                                  preference_path=self.store.path.parent / "render-preference.json")
 
     @filter.regex(TRIGGER_PATTERN)
     async def checkin(self, event: AstrMessageEvent):

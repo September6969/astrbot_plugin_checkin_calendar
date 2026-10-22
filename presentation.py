@@ -2,6 +2,7 @@
 
 import base64
 import calendar
+import json
 import re
 import unicodedata
 from functools import lru_cache
@@ -32,15 +33,29 @@ def parse_month(value: str, today: date) -> str:
 
 
 @lru_cache(maxsize=1)
-def font_data() -> str:
-    return "data:font/woff2;base64," + base64.b64encode((ROOT / "assets/calendar-sans.woff2").read_bytes()).decode("ascii")
+def font_index() -> dict:
+    return json.loads((ROOT / "assets/fonts/index.json").read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=128)
+def font_data(filename: str) -> str:
+    return "data:font/woff2;base64," + base64.b64encode((ROOT / "assets/fonts" / filename).read_bytes()).decode("ascii")
+
+
+def font_faces(text: str) -> list[dict]:
+    """静态文案使用基本分片，昵称等动态文本只加载包含所需字形的分片。"""
+    index = font_index()
+    common = set(index["base_codepoints"])
+    blocks = sorted({ord(char) // 256 for char in text if ord(char) not in common})
+    entries = [index["base"]] + [index["blocks"][str(block)] for block in blocks if str(block) in index["blocks"]]
+    return [{"data": font_data(entry["file"]), "unicode_range": entry["unicode_range"]} for entry in entries]
 
 
 @lru_cache(maxsize=1)
 def background_data() -> str | None:
     """装饰立绘随包提供；素材缺失时仍可显示完整月历。"""
-    path = ROOT / "assets/arcana.png"
-    return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("ascii") if path.is_file() else None
+    path = ROOT / "assets/arcana.webp"
+    return "data:image/webp;base64," + base64.b64encode(path.read_bytes()).decode("ascii") if path.is_file() else None
 
 
 def payload(snapshot: MonthSnapshot, name: str, today: date, timezone: str, message: str = "") -> dict:
@@ -61,7 +76,7 @@ def payload(snapshot: MonthSnapshot, name: str, today: date, timezone: str, mess
             "today": bool(day and date(year, month, day) == today),
             "future": bool(day and date(year, month, day) > today),
         } for day in week] for week in weeks],
-        "font": font_data(),
+        "fonts": font_faces(clean_name(name) + message),
         "background_art": background_data(),
     }
 
