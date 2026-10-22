@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP_LEVEL = {"__init__.py", "main.py", "store.py", "presentation.py", "metadata.yaml", "_conf_schema.json", "requirements.txt", "requirements-dev.txt", "pyproject.toml", "README.md", "LICENSE", "VALIDATION.md", ".gitignore"}
+TOP_LEVEL = {"__init__.py", "main.py", "store.py", "presentation.py", "rendering.py", "metadata.yaml", "_conf_schema.json", "requirements.txt", "requirements-dev.txt", "pyproject.toml", "README.md", "LICENSE", "VALIDATION.md", ".gitignore"}
 
 
 def build(output: Path):
