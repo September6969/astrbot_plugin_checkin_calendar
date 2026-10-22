@@ -18,7 +18,10 @@ def verify(path: Path):
         for name, digest in manifest.items():
             assert hashlib.sha256(archive.read(name)).hexdigest() == digest, name
         assert not any("__pycache__" in n or ".sqlite" in n for n in archive.namelist())
-        assert "astrbot_plugin_checkin_calendar/assets/arcana.png" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/assets/arcana.webp" in archive.namelist()
+        index = json.loads(archive.read("astrbot_plugin_checkin_calendar/assets/fonts/index.json"))
+        for face in [index['base'], *index['blocks'].values()]:
+            assert f"astrbot_plugin_checkin_calendar/assets/fonts/{face['file']}" in archive.namelist()
     print(f"安装包验证通过：{metadata['name']} {metadata['version']}，{len(manifest)} 个文件")
 
 

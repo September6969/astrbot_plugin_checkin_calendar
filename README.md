@@ -27,9 +27,9 @@
 
 在 AstrBot 插件管理中上传本插件 ZIP，或将目录放到 `data/plugins/astrbot_plugin_checkin_calendar` 后加载。支持 AstrBot 4.24 至 5.0 之前的版本；主机需已配置 AstrBot 的 HTML 图片渲染能力。图片生成失败时，返回包含当天记录和整月明细的文字结果，已保存的次数不会重复写入。
 
-宿主提供多个渲染节点时，每个节点最多等待12秒，失败后切换下一节点；优先使用最近成功的节点，总等待仍限制为30秒。切换仅重复渲染同一份月历，不重复计数。图片先下载到本机再交给消息适配器；全部失败时明确说明，并提示发送 `🦌 月历` 只读重试。
+宿主提供多个渲染节点时，每个节点最多等待12秒，失败后切换下一节点；优先使用最近成功的节点，总等待仍限制为30秒。成功节点偏好会保存在插件数据目录，重启后继续使用；已经从宿主配置移除的节点不会被使用。切换仅重复渲染同一份月历，不重复计数。图片先下载到本机再交给消息适配器；全部失败时明确说明，并提示发送 `🦌 月历` 只读重试。
 
-依赖仅新增 `tzdata`（跨平台时区数据库），由插件依赖安装流程处理。图片使用 AstrBot 原生 `html_render`；本插件不新增 Pillow 或浏览器进程。随包提供 Noto Sans 衍生中文 WOFF2 字体，支持基本汉字，许可证见 `assets/OFL-NotoSansSC.txt`。生僻字和 emoji 仍依赖渲染主机的备用字体。
+运行依赖仅新增 `tzdata`（跨平台时区数据库），由插件依赖安装流程处理。图片使用 AstrBot 原生渲染协议；本插件不新增 Pillow 或浏览器进程。随包提供 Noto Sans 衍生中文 WOFF2 字体分片，只上传当前文案及昵称所需的分片；原有21,113个字符全部保留。立绘使用同尺寸、同像素的无损 WebP。许可证见 `assets/OFL-NotoSansSC.txt`；未收录的生僻字和 emoji 仍依赖渲染主机的备用字体。
 
 ## 记录规则与隐私
 
@@ -45,6 +45,8 @@
 
 数据保存在 AstrBot 专用目录 `data/plugin_data/astrbot_plugin_checkin_calendar/calendar.sqlite3`，包含用于隔离的用户标识、日期、时间戳和消息去重标记。备份时应暂停插件后复制该数据库。插件升级不应删除此目录；卸载插件前按需备份或清除自己的数据。
 
+同目录的 `render-preference.json` 只保存成功的渲染节点地址，不包含用户记录；可以删除，插件会重新选择节点。
+
 ## 开发与本地验证
 
 在插件目录执行 `python -m pytest -q`。开发测试额外需要 `pytest`、`pytest-asyncio`、`jinja2` 与 AstrBot SDK；执行预览脚本还需本机已安装的 Playwright Chromium。
@@ -56,3 +58,5 @@ python scripts/preview.py --output E:/DevCache/checkin-calendar-review/previews
 ```
 
 预览脚本直接渲染正式模板，使用合成记录。GitHub CI 在 Python 3.12、3.13 下运行回归，并检查安装包和 Chromium 页面布局。部署与真实消息验收分别记录，CI 不会向真实用户或群发消息。
+
+`scripts/build_font_shards.py --source <原始calendar-sans.woff2路径>` 可重新生成字体分片，使用开发依赖 `fonttools[woff]`。原始字体可从 v0.1.7 对应 Git 历史获取，SHA-256 记录在 `assets/fonts/index.json`；运行插件不需要安装 FontTools，也不现场切割字体。

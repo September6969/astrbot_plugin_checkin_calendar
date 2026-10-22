@@ -85,3 +85,33 @@ async def test_concurrent_requests_keep_endpoint_selection_and_data_isolated():
     assert strategy.endpoints == ['slow', 'good']
     assert sum(c[2] is data[0] for c in strategy.calls) == 2
     assert sum(c[2] is data[1] for c in strategy.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_successful_endpoint_survives_restart(tmp_path):
+    path = tmp_path / 'render-preference.json'
+    strategy = Strategy({'slow': 'hang', 'good': '/tmp/good.png'})
+    renderer = CalendarRenderer(AsyncMock(), strategy, endpoint_timeout=0.01, preference_path=path)
+    await renderer.render('t', {}, {})
+    strategy.calls.clear()
+    restarted = CalendarRenderer(AsyncMock(), strategy, preference_path=path)
+    assert await restarted.render('t', {}, {}) == '/tmp/good.png'
+    assert [c[0] for c in strategy.calls] == ['good']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('content', ['bad json', '[]', '{"endpoint":"retired"}'])
+async def test_invalid_or_removed_cached_endpoint_never_overrides_host(tmp_path, content):
+    path = tmp_path / 'render-preference.json'
+    path.write_text(content, encoding='utf-8')
+    strategy = Strategy({'configured': '/tmp/good.png'})
+    assert await CalendarRenderer(AsyncMock(), strategy, preference_path=path).render('t', {}, {}) == '/tmp/good.png'
+    assert [c[0] for c in strategy.calls] == ['configured']
+
+
+@pytest.mark.asyncio
+async def test_unwritable_preference_does_not_lose_rendered_image(tmp_path):
+    path = tmp_path / 'directory'
+    path.mkdir()
+    strategy = Strategy({'good': '/tmp/good.png'})
+    assert await CalendarRenderer(AsyncMock(), strategy, preference_path=path).render('t', {}, {}) == '/tmp/good.png'

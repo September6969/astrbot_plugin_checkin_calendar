@@ -1,0 +1,678 @@
+{
+  "source_sha256": "85014d5f7f72313ff0738d7b8464a371826e1caca3d2cc1374bc4c11afec1e07",
+  "supported_count": 21113,
+  "base_codepoints": [
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    183,
+    12288,
+    12289,
+    12290,
+    19968,
+    19977,
+    19978,
+    19981,
+    20010,
+    20043,
+    20108,
+    20116,
+    20154,
+    20170,
+    20173,
+    20174,
+    20182,
+    20197,
+    20221,
+    20250,
+    20307,
+    20316,
+    20351,
+    20363,
+    20379,
+    20445,
+    20799,
+    20808,
+    20813,
+    20837,
+    20845,
+    20877,
+    20889,
+    20915,
+    20919,
+    20998,
+    21069,
+    21151,
+    21152,
+    21160,
+    21161,
+    21253,
+    21306,
+    21345,
+    21363,
+    21364,
+    21382,
+    21407,
+    21450,
+    21457,
+    21462,
+    21475,
+    21482,
+    21487,
+    21488,
+    21490,
+    21516,
+    21517,
+    21518,
+    21542,
+    21543,
+    21547,
+    21608,
+    21644,
+    21734,
+    21807,
+    22120,
+    22235,
+    22238,
+    22260,
+    22270,
+    22312,
+    22522,
+    22635,
+    22686,
+    22788,
+    22797,
+    22825,
+    22833,
+    22914,
+    22987,
+    23383,
+    23384,
+    23436,
+    23450,
+    23545,
+    23567,
+    23569,
+    24050,
+    24110,
+    24120,
+    24179,
+    24180,
+    24182,
+    24320,
+    24322,
+    24403,
+    24405,
+    24418,
+    24453,
+    24471,
+    24555,
+    24577,
+    24687,
+    24847,
+    25104,
+    25105,
+    25110,
+    25143,
+    25152,
+    25171,
+    25353,
+    25454,
+    25509,
+    25552,
+    25764,
+    25805,
+    25918,
+    25928,
+    25968,
+    25972,
+    25991,
+    26012,
+    26032,
+    26041,
+    26080,
+    26085,
+    26102,
+    26126,
+    26159,
+    26165,
+    26174,
+    26242,
+    26368,
+    26376,
+    26377,
+    26399,
+    26410,
+    26412,
+    26448,
+    26464,
+    26465,
+    26524,
+    26579,
+    26597,
+    26631,
+    26680,
+    26694,
+    26696,
+    27425,
+    27463,
+    27599,
+    27809,
+    27861,
+    27880,
+    27979,
+    28040,
+    28210,
+    29031,
+    29255,
+    29305,
+    29366,
+    29420,
+    29468,
+    29702,
+    29983,
+    29992,
+    30340,
+    30452,
+    30475,
+    30830,
+    31034,
+    31105,
+    31186,
+    31216,
+    31245,
+    31435,
+    31532,
+    31561,
+    32032,
+    32047,
+    32467,
+    32472,
+    32570,
+    32622,
+    32773,
+    33021,
+    33258,
+    33267,
+    33406,
+    33539,
+    34892,
+    35013,
+    35745,
+    35748,
+    35760,
+    35797,
+    35810,
+    35823,
+    35828,
+    35831,
+    35835,
+    35843,
+    36133,
+    36275,
+    36523,
+    36716,
+    36733,
+    36807,
+    36817,
+    36820,
+    36824,
+    36825,
+    36827,
+    36857,
+    36864,
+    36865,
+    36890,
+    36896,
+    36991,
+    37325,
+    38047,
+    38144,
+    38388,
+    38543,
+    38548,
+    38656,
+    38745,
+    39280,
+    39302,
+    65281,
+    65288,
+    65289,
+    65292,
+    65306
+  ],
+  "blocks": {
+    "48": {
+      "file": "block-0030.woff2",
+      "unicode_range": "U+3003-303F"
+    },
+    "78": {
+      "file": "block-004e.woff2",
+      "unicode_range": "U+4E01-4E08,U+4E0B-4E0C,U+4E0E-4E29,U+4E2B-4E4A,U+4E4C-4E8B,U+4E8D-4E93,U+4E95-4EB9,U+4EBB-4EC9,U+4ECB-4ECC,U+4ECF-4ED5,U+4ED7-4EE4,U+4EE6-4EFC,U+4EFE-4EFF"
+    },
+    "79": {
+      "file": "block-004f.woff2",
+      "unicode_range": "U+4F00-4F19,U+4F1B-4F52,U+4F54-4F5B,U+4F5D-4F7E,U+4F80-4F8A,U+4F8C-4F9A,U+4F9C-4FDC,U+4FDE-4FFF"
+    },
+    "80": {
+      "file": "block-0050.woff2",
+      "unicode_range": "U+5000-50FF"
+    },
+    "81": {
+      "file": "block-0051.woff2",
+      "unicode_range": "U+5100-513E,U+5140-5147,U+5149-514C,U+514E-5164,U+5166-516C,U+516E-518C,U+518E-5198,U+519A-51B2,U+51B4-51B6,U+51B8-51FF"
+    },
+    "82": {
+      "file": "block-0052.woff2",
+      "unicode_range": "U+5200-5205,U+5207-524C,U+524E-529E,U+52A1-52A7,U+52AA-52FF"
+    },
+    "83": {
+      "file": "block-0053.woff2",
+      "unicode_range": "U+5300-5304,U+5306-5339,U+533B-5360,U+5362-5372,U+5375-5385,U+5387-539E,U+53A0-53C9,U+53CB-53D0,U+53D2-53D5,U+53D7-53E2,U+53E4-53E9,U+53EB-53EE,U+53F1,U+53F3-53FF"
+    },
+    "84": {
+      "file": "block-0054.woff2",
+      "unicode_range": "U+5400-540B,U+540F-5425,U+5428-542A,U+542C-5467,U+5469-548B,U+548D-54E5,U+54E7-54FF"
+    },
+    "85": {
+      "file": "block-0055.woff2",
+      "unicode_range": "U+5500-552E,U+5530-55FF"
+    },
+    "86": {
+      "file": "block-0056.woff2",
+      "unicode_range": "U+5600-5667,U+5669-56DA,U+56DC-56DD,U+56DF-56F3,U+56F5-56FD,U+56FF"
+    },
+    "87": {
+      "file": "block-0057.woff2",
+      "unicode_range": "U+5700-5727,U+5729-57F9,U+57FB-57FF"
+    },
+    "88": {
+      "file": "block-0058.woff2",
+      "unicode_range": "U+5800-586A,U+586C-589D,U+589F-58FF"
+    },
+    "89": {
+      "file": "block-0059.woff2",
+      "unicode_range": "U+5900-5903,U+5905-590C,U+590E-5928,U+592A-5930,U+5932-5981,U+5983-59CA,U+59CC-59FF"
+    },
+    "90": {
+      "file": "block-005a.woff2",
+      "unicode_range": "U+5A00-5AFF"
+    },
+    "91": {
+      "file": "block-005b.woff2",
+      "unicode_range": "U+5B00-5B56,U+5B59-5B8B,U+5B8D-5B99,U+5B9B-5BF8,U+5BFA-5BFF"
+    },
+    "92": {
+      "file": "block-005c.woff2",
+      "unicode_range": "U+5C00-5C0E,U+5C10,U+5C12-5CFF"
+    },
+    "93": {
+      "file": "block-005d.woff2",
+      "unicode_range": "U+5D00-5DF1,U+5DF3-5DFF"
+    },
+    "94": {
+      "file": "block-005e.woff2",
+      "unicode_range": "U+5E00-5E2D,U+5E2F-5E37,U+5E39-5E72,U+5E75,U+5E77-5EFF"
+    },
+    "95": {
+      "file": "block-005f.woff2",
+      "unicode_range": "U+5F01,U+5F03-5F52,U+5F54,U+5F56-5F61,U+5F63-5F84,U+5F86-5F96,U+5F98-5FEA,U+5FEC-5FFF"
+    },
+    "96": {
+      "file": "block-0060.woff2",
+      "unicode_range": "U+6000,U+6002-606E,U+6070-60FF"
+    },
+    "97": {
+      "file": "block-0061.woff2",
+      "unicode_range": "U+6100-610E,U+6110-61FF"
+    },
+    "98": {
+      "file": "block-0062.woff2",
+      "unicode_range": "U+6200-620F,U+6212-6215,U+6217-6236,U+6238-623F,U+6241-6252,U+6254-62FF"
+    },
+    "99": {
+      "file": "block-0063.woff2",
+      "unicode_range": "U+6300-6308,U+630A-636D,U+636F-63A4,U+63A6-63CF,U+63D1-63FF"
+    },
+    "100": {
+      "file": "block-0064.woff2",
+      "unicode_range": "U+6400-64A3,U+64A5-64CC,U+64CE-64FF"
+    },
+    "101": {
+      "file": "block-0065.woff2",
+      "unicode_range": "U+6500-653D,U+653F-6547,U+6549-656F,U+6571-6573,U+6575-6586,U+6588-659B,U+659D-65AF,U+65B1-65B8,U+65BA-65DF,U+65E1-65E4,U+65E6-65F5,U+65F7-65FF"
+    },
+    "102": {
+      "file": "block-0066.woff2",
+      "unicode_range": "U+6600-660D,U+660F-662E,U+6630-6634,U+6636-663D,U+663F-6681,U+6683-66FF"
+    },
+    "103": {
+      "file": "block-0067.woff2",
+      "unicode_range": "U+6701-6707,U+670A-671E,U+6720-6729,U+672B,U+672D-674F,U+6751-675F,U+6762-679B,U+679D-67D2,U+67D4-67E4,U+67E6-67FF"
+    },
+    "104": {
+      "file": "block-0068.woff2",
+      "unicode_range": "U+6800-6806,U+6808-6837,U+6839-6845,U+6847,U+6849-68FF"
+    },
+    "105": {
+      "file": "block-0069.woff2",
+      "unicode_range": "U+6900-69FF"
+    },
+    "106": {
+      "file": "block-006a.woff2",
+      "unicode_range": "U+6A00-6AFF"
+    },
+    "107": {
+      "file": "block-006b.woff2",
+      "unicode_range": "U+6B00-6B20,U+6B22-6B46,U+6B48-6BCE,U+6BD0-6BFF"
+    },
+    "108": {
+      "file": "block-006c.woff2",
+      "unicode_range": "U+6C00-6CA0,U+6CA2-6CD4,U+6CD6-6CE7,U+6CE9-6CFF"
+    },
+    "109": {
+      "file": "block-006d.woff2",
+      "unicode_range": "U+6D00-6D4A,U+6D4C-6D87,U+6D89-6DFF"
+    },
+    "110": {
+      "file": "block-006e.woff2",
+      "unicode_range": "U+6E00-6E31,U+6E33-6EFF"
+    },
+    "111": {
+      "file": "block-006f.woff2",
+      "unicode_range": "U+6F00-6FFF"
+    },
+    "112": {
+      "file": "block-0070.woff2",
+      "unicode_range": "U+7000-70FF"
+    },
+    "113": {
+      "file": "block-0071.woff2",
+      "unicode_range": "U+7100-7166,U+7168-71FF"
+    },
+    "114": {
+      "file": "block-0072.woff2",
+      "unicode_range": "U+7200-7246,U+7248-7278,U+727A-72B5,U+72B7-72EB,U+72ED-72FF"
+    },
+    "115": {
+      "file": "block-0073.woff2",
+      "unicode_range": "U+7300-731B,U+731D-73FF"
+    },
+    "116": {
+      "file": "block-0074.woff2",
+      "unicode_range": "U+7400-7405,U+7407-74FF"
+    },
+    "117": {
+      "file": "block-0075.woff2",
+      "unicode_range": "U+7500-751E,U+7520-7527,U+7529-75FF"
+    },
+    "118": {
+      "file": "block-0076.woff2",
+      "unicode_range": "U+7600-7683,U+7685-76F3,U+76F5-76FF"
+    },
+    "119": {
+      "file": "block-0077.woff2",
+      "unicode_range": "U+7700-770A,U+770C-77FF"
+    },
+    "120": {
+      "file": "block-0078.woff2",
+      "unicode_range": "U+7800-786D,U+786F-78FF"
+    },
+    "121": {
+      "file": "block-0079.woff2",
+      "unicode_range": "U+7900-7939,U+793B-7980,U+7982-79D1,U+79D3-79EF,U+79F1-79FF"
+    },
+    "122": {
+      "file": "block-007a.woff2",
+      "unicode_range": "U+7A00-7A0C,U+7A0E-7ACA,U+7ACC-7AFF"
+    },
+    "123": {
+      "file": "block-007b.woff2",
+      "unicode_range": "U+7B00-7B2B,U+7B2D-7B48,U+7B4A-7BFF"
+    },
+    "124": {
+      "file": "block-007c.woff2",
+      "unicode_range": "U+7C00-7CFF"
+    },
+    "125": {
+      "file": "block-007d.woff2",
+      "unicode_range": "U+7D00-7D1F,U+7D21-7D2E,U+7D30-7DFF"
+    },
+    "126": {
+      "file": "block-007e.woff2",
+      "unicode_range": "U+7E00-7ED2,U+7ED4-7ED7,U+7ED9-7EFF"
+    },
+    "127": {
+      "file": "block-007f.woff2",
+      "unicode_range": "U+7F00-7F39,U+7F3B-7F6D,U+7F6F-7FFF"
+    },
+    "128": {
+      "file": "block-0080.woff2",
+      "unicode_range": "U+8000-8004,U+8006-80FC,U+80FE-80FF"
+    },
+    "129": {
+      "file": "block-0081.woff2",
+      "unicode_range": "U+8100-81E9,U+81EB-81F2,U+81F4-81FF"
+    },
+    "130": {
+      "file": "block-0082.woff2",
+      "unicode_range": "U+8200-827D,U+827F-82FF"
+    },
+    "131": {
+      "file": "block-0083.woff2",
+      "unicode_range": "U+8300-8302,U+8304-83FF"
+    },
+    "132": {
+      "file": "block-0084.woff2",
+      "unicode_range": "U+8400-84FF"
+    },
+    "133": {
+      "file": "block-0085.woff2",
+      "unicode_range": "U+8500-85FF"
+    },
+    "134": {
+      "file": "block-0086.woff2",
+      "unicode_range": "U+8600-86FF"
+    },
+    "135": {
+      "file": "block-0087.woff2",
+      "unicode_range": "U+8700-87FF"
+    },
+    "136": {
+      "file": "block-0088.woff2",
+      "unicode_range": "U+8800-884B,U+884D-88C4,U+88C6-88FF"
+    },
+    "137": {
+      "file": "block-0089.woff2",
+      "unicode_range": "U+8900-89FF"
+    },
+    "138": {
+      "file": "block-008a.woff2",
+      "unicode_range": "U+8A00-8AFF"
+    },
+    "139": {
+      "file": "block-008b.woff2",
+      "unicode_range": "U+8B00-8BA0,U+8BA2-8BA3,U+8BA5-8BAF,U+8BB1-8BD4,U+8BD6-8BE1,U+8BE3-8BEE,U+8BF0-8BF3,U+8BF5-8BF6,U+8BF8-8BFA,U+8BFC-8BFF"
+    },
+    "140": {
+      "file": "block-008c.woff2",
+      "unicode_range": "U+8C00-8C02,U+8C04-8CFF"
+    },
+    "141": {
+      "file": "block-008d.woff2",
+      "unicode_range": "U+8D00-8D24,U+8D26-8DB2,U+8DB4-8DFF"
+    },
+    "142": {
+      "file": "block-008e.woff2",
+      "unicode_range": "U+8E00-8EAA,U+8EAC-8EFF"
+    },
+    "143": {
+      "file": "block-008f.woff2",
+      "unicode_range": "U+8F00-8F6B,U+8F6D-8F7C,U+8F7E-8FC6,U+8FC8-8FD0,U+8FD2-8FD3,U+8FD5-8FD7,U+8FDA,U+8FDC-8FF8,U+8FFA-8FFF"
+    },
+    "144": {
+      "file": "block-0090.woff2",
+      "unicode_range": "U+9002-9019,U+901B-901F,U+9021-907E,U+9080-90FF"
+    },
+    "145": {
+      "file": "block-0091.woff2",
+      "unicode_range": "U+9100-91CC,U+91CE-91FF"
+    },
+    "146": {
+      "file": "block-0092.woff2",
+      "unicode_range": "U+9200-92FF"
+    },
+    "147": {
+      "file": "block-0093.woff2",
+      "unicode_range": "U+9300-93FF"
+    },
+    "148": {
+      "file": "block-0094.woff2",
+      "unicode_range": "U+9400-949E,U+94A0-94FF"
+    },
+    "149": {
+      "file": "block-0095.woff2",
+      "unicode_range": "U+9501-95F3,U+95F5-95FF"
+    },
+    "150": {
+      "file": "block-0096.woff2",
+      "unicode_range": "U+9600-968E,U+9690-9693,U+9695-96FF"
+    },
+    "151": {
+      "file": "block-0097.woff2",
+      "unicode_range": "U+9701-9758,U+975A-97FF"
+    },
+    "152": {
+      "file": "block-0098.woff2",
+      "unicode_range": "U+9800-98FF"
+    },
+    "153": {
+      "file": "block-0099.woff2",
+      "unicode_range": "U+9900-996F,U+9971-9985,U+9987-99FF"
+    },
+    "154": {
+      "file": "block-009a.woff2",
+      "unicode_range": "U+9A00-9AFF"
+    },
+    "155": {
+      "file": "block-009b.woff2",
+      "unicode_range": "U+9B00-9BFF"
+    },
+    "156": {
+      "file": "block-009c.woff2",
+      "unicode_range": "U+9C00-9CFF"
+    },
+    "157": {
+      "file": "block-009d.woff2",
+      "unicode_range": "U+9D00-9DFF"
+    },
+    "158": {
+      "file": "block-009e.woff2",
+      "unicode_range": "U+9E00-9EFF"
+    },
+    "159": {
+      "file": "block-009f.woff2",
+      "unicode_range": "U+9F00-9FD0"
+    },
+    "255": {
+      "file": "block-00ff.woff2",
+      "unicode_range": "U+FF0F,U+FF1F,U+FF5E"
+    }
+  },
+  "base": {
+    "file": "base.woff2",
+    "unicode_range": "U+20-7E,U+B7,U+3000-3002,U+4E00,U+4E09-4E0A,U+4E0D,U+4E2A,U+4E4B,U+4E8C,U+4E94,U+4EBA,U+4ECA,U+4ECD-4ECE,U+4ED6,U+4EE5,U+4EFD,U+4F1A,U+4F53,U+4F5C,U+4F7F,U+4F8B,U+4F9B,U+4FDD,U+513F,U+5148,U+514D,U+5165,U+516D,U+518D,U+5199,U+51B3,U+51B7,U+5206,U+524D,U+529F-52A0,U+52A8-52A9,U+5305,U+533A,U+5361,U+5373-5374,U+5386,U+539F,U+53CA,U+53D1,U+53D6,U+53E3,U+53EA,U+53EF-53F0,U+53F2,U+540C-540E,U+5426-5427,U+542B,U+5468,U+548C,U+54E6,U+552F,U+5668,U+56DB,U+56DE,U+56F4,U+56FE,U+5728,U+57FA,U+586B,U+589E,U+5904,U+590D,U+5929,U+5931,U+5982,U+59CB,U+5B57-5B58,U+5B8C,U+5B9A,U+5BF9,U+5C0F,U+5C11,U+5DF2,U+5E2E,U+5E38,U+5E73-5E74,U+5E76,U+5F00,U+5F02,U+5F53,U+5F55,U+5F62,U+5F85,U+5F97,U+5FEB,U+6001,U+606F,U+610F,U+6210-6211,U+6216,U+6237,U+6240,U+6253,U+6309,U+636E,U+63A5,U+63D0,U+64A4,U+64CD,U+653E,U+6548,U+6570,U+6574,U+6587,U+659C,U+65B0,U+65B9,U+65E0,U+65E5,U+65F6,U+660E,U+662F,U+6635,U+663E,U+6682,U+6700,U+6708-6709,U+671F,U+672A,U+672C,U+6750,U+6760-6761,U+679C,U+67D3,U+67E5,U+6807,U+6838,U+6846,U+6848,U+6B21,U+6B47,U+6BCF,U+6CA1,U+6CD5,U+6CE8,U+6D4B,U+6D88,U+6E32,U+7167,U+7247,U+7279,U+72B6,U+72EC,U+731C,U+7406,U+751F,U+7528,U+7684,U+76F4,U+770B,U+786E,U+793A,U+7981,U+79D2,U+79F0,U+7A0D,U+7ACB,U+7B2C,U+7B49,U+7D20,U+7D2F,U+7ED3,U+7ED8,U+7F3A,U+7F6E,U+8005,U+80FD,U+81EA,U+81F3,U+827E,U+8303,U+884C,U+88C5,U+8BA1,U+8BA4,U+8BB0,U+8BD5,U+8BE2,U+8BEF,U+8BF4,U+8BF7,U+8BFB,U+8C03,U+8D25,U+8DB3,U+8EAB,U+8F6C,U+8F7D,U+8FC7,U+8FD1,U+8FD4,U+8FD8-8FD9,U+8FDB,U+8FF9,U+9000-9001,U+901A,U+9020,U+907F,U+91CD,U+949F,U+9500,U+95F4,U+968F,U+9694,U+9700,U+9759,U+9970,U+9986,U+FF01,U+FF08-FF09,U+FF0C,U+FF1A"
+  }
+}
