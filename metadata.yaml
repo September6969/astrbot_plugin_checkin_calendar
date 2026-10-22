@@ -2,7 +2,7 @@ name: astrbot_plugin_checkin_calendar
 display_name: 打卡月历
 desc: 独立个人打卡计数、暖色月历、历史月份和撤销。
 author: September
-version: 0.1.6
+version: 0.1.7
 repo: https://github.com/September6969/astrbot_plugin_checkin_calendar
 astrbot_version: ">=4.24,<5"
 tags:
