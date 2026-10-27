@@ -19,6 +19,8 @@ def verify(path: Path):
             assert hashlib.sha256(archive.read(name)).hexdigest() == digest, name
         assert not any("__pycache__" in n or ".sqlite" in n for n in archive.namelist())
         assert "astrbot_plugin_checkin_calendar/assets/arcana.webp" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/ranking.py" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/templates/ranking.html" in archive.namelist()
         index = json.loads(archive.read("astrbot_plugin_checkin_calendar/assets/fonts/index.json"))
         for face in [index['base'], *index['blocks'].values()]:
             assert f"astrbot_plugin_checkin_calendar/assets/fonts/{face['file']}" in archive.namelist()

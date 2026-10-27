@@ -17,9 +17,10 @@ from astrbot.api.star import Context, Star, StarTools
 from .presentation import clean_name, parse_month, payload, text_summary
 from .rendering import CalendarRenderer
 from .store import CalendarStore
+from .ranking import ranking_payload, ranking_text, resolve_names
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 撤销：撤销今天最近一次\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。每次记录至少间隔2小时，撤销不重置间隔。按本人独立保存，不开放他人查询。"
+HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。每次记录至少间隔2小时，撤销不重置间隔。按本人独立保存，不开放他人查询。"
 
 
 class CheckinCalendarPlugin(Star):
@@ -52,7 +53,7 @@ class CheckinCalendarPlugin(Star):
         if action == "帮助":
             yield event.plain_result(HELP)
             return
-        if action not in {"", "月历", "状态", "撤销"} or (value and action != "月历"):
+        if action not in {"", "月历", "状态", "撤销", "排行"} or (value and action not in {"月历", "排行"}):
             yield event.plain_result(HELP)
             return
         platform = str(event.get_platform_id() or "")
@@ -67,6 +68,15 @@ class CheckinCalendarPlugin(Star):
             month = parse_month(value, now.date())
         except ValueError as exc:
             yield event.plain_result(str(exc))
+            return
+        try:
+            if event.get_sender_name():
+                await asyncio.to_thread(self.store.save_name, actor, clean_name(event.get_sender_name()))
+        except (sqlite3.Error, OSError):
+            logger.warning("[打卡月历] 昵称暂未保存")
+        if action == "排行":
+            async for reply in self._ranking(event, platform, bot, month):
+                yield reply
             return
         message = ""
         if action in {"", "撤销"}:
@@ -115,3 +125,22 @@ class CheckinCalendarPlugin(Star):
         # 原生艾特放在图片之前，使用平台用户 ID，避免昵称同名造成误艾特。
         reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
         yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
+
+    async def _ranking(self, event, platform, bot, month):
+        try:
+            snapshot = await asyncio.to_thread(self.store.ranking, platform, bot, month)
+        except (sqlite3.Error, OSError):
+            yield event.make_result().message("排行榜暂时读取失败，请稍后重试。").use_t2i(False)
+            return
+        snapshot = await resolve_names(snapshot, event, self.store)
+        data = ranking_payload(snapshot)
+        try:
+            template = (Path(__file__).parent / "templates/ranking.html").read_text(encoding="utf-8")
+            image = await asyncio.wait_for(self.calendar_renderer.render(template, data, {}), 30)
+            if not isinstance(image, str) or not image.strip():
+                raise ValueError("渲染器未返回图片")
+        except Exception as exc:
+            logger.warning("[打卡月历] 排行图片生成失败：%s", type(exc).__name__)
+            yield event.make_result().message(ranking_text(data)).use_t2i(False)
+            return
+        yield event.make_result().file_image(image).use_t2i(False)

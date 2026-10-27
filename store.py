@@ -18,6 +18,23 @@ class MonthSnapshot:
 
 
 @dataclass(frozen=True)
+class RankEntry:
+    actor: str
+    user_id: str
+    name: str
+    total: int
+    days: int
+
+
+@dataclass(frozen=True)
+class RankingSnapshot:
+    month: str
+    total: int
+    participants: int
+    entries: list[RankEntry]
+
+
+@dataclass(frozen=True)
 class Change:
     status: str
     day: str | None = None
@@ -41,6 +58,11 @@ class CalendarStore:
                 );
                 CREATE INDEX IF NOT EXISTS entries_actor_day ON entries(actor, day, undone);
                 CREATE INDEX IF NOT EXISTS entries_actor_recent ON entries(actor, id DESC);
+                CREATE TABLE IF NOT EXISTS display_names (
+                    actor TEXT PRIMARY KEY,
+                    name TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS entries_month ON entries(day, undone, actor);
                 CREATE TABLE IF NOT EXISTS receipts (
                     actor TEXT NOT NULL,
                     token TEXT NOT NULL,
@@ -117,3 +139,39 @@ class CalendarStore:
             con.close()
         counts = {int(day[-2:]): count for day, count in rows}
         return MonthSnapshot(month, counts, sum(counts.values()), len(counts))
+
+    def save_name(self, actor: str, name: str):
+        if not name.strip():
+            return
+        con = self._connect()
+        try:
+            con.execute("INSERT INTO display_names(actor,name) VALUES (?,?) ON CONFLICT(actor) DO UPDATE SET name=excluded.name", (actor, name))
+            con.commit()
+        finally:
+            con.close()
+
+    def ranking(self, platform: str, bot: str, month: str) -> RankingSnapshot:
+        start = date.fromisoformat(month + "-01")
+        end = date(start.year + 1, 1, 1) if start.month == 12 else date(start.year, start.month + 1, 1)
+        con = self._connect()
+        try:
+            # 单次聚合得到完整总数与前十，昵称只用于展示，不作为分组键。
+            rows = con.execute("""SELECT e.actor, COALESCE(n.name,''), COUNT(*), COUNT(DISTINCT e.day)
+                FROM entries e LEFT JOIN display_names n ON n.actor=e.actor
+                WHERE e.day>=? AND e.day<? AND e.undone=0 GROUP BY e.actor""",
+                (start.isoformat(), end.isoformat())).fetchall()
+        finally:
+            con.close()
+        entries = []
+        for actor, name, total, days in rows:
+            try:
+                identity = json.loads(actor)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(identity, list) or len(identity) != 3 or identity[:2] != [platform, bot]:
+                continue
+            if not isinstance(identity[2], str) or not identity[2]:
+                continue
+            entries.append(RankEntry(actor, identity[2], name, total, days))
+        entries.sort(key=lambda entry: (-entry.total, -entry.days, entry.user_id))
+        return RankingSnapshot(month, sum(e.total for e in entries), len(entries), entries[:10])

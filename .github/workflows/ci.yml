@@ -29,7 +29,7 @@ jobs:
       - name: Run regression tests
         run: python -m pytest -q
       - name: Compile Python sources
-        run: python -m compileall -q main.py store.py presentation.py rendering.py scripts tests
+        run: python -m compileall -q main.py store.py presentation.py rendering.py ranking.py scripts tests
       - name: Build installation archive
         run: python scripts/package.py --output dist/astrbot_plugin_checkin_calendar.zip
       - name: Validate installation archive
@@ -43,6 +43,9 @@ jobs:
       - name: Verify production local renderer
         if: matrix.python == '3.12'
         run: python scripts/check_local_render.py --output previews/local
+      - name: Render ranking previews
+        if: matrix.python == '3.12'
+        run: python scripts/preview_ranking.py --output previews/ranking
       - name: Upload preview evidence
         if: matrix.python == '3.12'
         uses: actions/upload-artifact@v4
