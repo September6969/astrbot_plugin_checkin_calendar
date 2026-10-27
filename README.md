@@ -25,11 +25,27 @@
 
 ## 安装
 
-在 AstrBot 插件管理中上传本插件 ZIP，或将目录放到 `data/plugins/astrbot_plugin_checkin_calendar` 后加载。支持 AstrBot 4.24 至 5.0 之前的版本；主机需已配置 AstrBot 的 HTML 图片渲染能力。图片生成失败时，返回包含当天记录和整月明细的文字结果，已保存的次数不会重复写入。
+在 AstrBot 插件管理中上传本插件 ZIP，或将目录放到 `data/plugins/astrbot_plugin_checkin_calendar` 后加载。支持 AstrBot 4.24 至 5.0 之前的版本。
 
-宿主提供多个渲染节点时，每个节点最多等待12秒，失败后切换下一节点；优先使用最近成功的节点，总等待仍限制为30秒。成功节点偏好会保存在插件数据目录，重启后继续使用；已经从宿主配置移除的节点不会被使用。切换仅重复渲染同一份月历，不重复计数。图片先下载到本机再交给消息适配器；全部失败时明确说明，并提示发送 `🦌 月历` 只读重试。
+月历由 **AstrBot 所在服务器的 Chromium 本地渲染**，不调用宿主公共图片节点，不上传昵称、记录、字体或立绘。所有图片与字体随包内嵌，页面禁用网络请求。浏览器按需启动并复用，每次使用独立上下文；请求串行执行以限制内存，排队与渲染共最多30秒。异常时返回文字，次数保留，可用 `🦌 月历` 只读重试。插件卸载时关闭浏览器。
 
-运行依赖仅新增 `tzdata`（跨平台时区数据库），由插件依赖安装流程处理。图片使用 AstrBot 原生渲染协议；本插件不新增 Pillow 或浏览器进程。随包提供 Noto Sans 衍生中文 WOFF2 字体分片，只上传当前文案及昵称所需的分片；原有21,113个字符全部保留。立绘使用同尺寸、同像素的无损 WebP。许可证见 `assets/OFL-NotoSansSC.txt`；未收录的生僻字和 emoji 仍依赖渲染主机的备用字体。
+运行依赖为 `tzdata`、`jinja2`、`playwright`。安装 Python 依赖后，还必须在 **运行 AstrBot 的同一环境、同一用户** 下安装 Chromium。Linux 执行：
+
+```sh
+python -m pip install -r requirements.txt
+python -m playwright install --with-deps --only-shell chromium
+```
+
+Docker 用户需在容器中执行；只重启容器会保留安装，删除并重建容器则需要重新安装。生产建议构建派生镜像，避免重建丢失依赖。不要把宿主机的 Windows 浏览器复制到 Linux 容器。可在 Linux Dockerfile 中追加：
+
+```dockerfile
+RUN python -m pip install playwright==1.62.0 'jinja2>=3.1,<4' tzdata \
+ && python -m playwright install --with-deps --only-shell chromium
+```
+
+Windows 本地预览执行 `python -m playwright install chromium`。缺少浏览器时会明确退回文字，不会悄悄转用远程节点。
+
+随包提供 Noto Sans 衍生中文 WOFF2 字体分片，原有21,113个字符全部保留。立绘使用无损 WebP。许可证见 `assets/OFL-NotoSansSC.txt`；未收录的生僻字和 emoji 仍依赖服务器备用字体。
 
 ## 记录规则与隐私
 
@@ -45,7 +61,7 @@
 
 数据保存在 AstrBot 专用目录 `data/plugin_data/astrbot_plugin_checkin_calendar/calendar.sqlite3`，包含用于隔离的用户标识、日期、时间戳和消息去重标记。备份时应暂停插件后复制该数据库。插件升级不应删除此目录；卸载插件前按需备份或清除自己的数据。
 
-同目录的 `render-preference.json` 只保存成功的渲染节点地址，不包含用户记录；可以删除，插件会重新选择节点。
+旧版 `render-preference.json` 已不再读取，可以删除。`rendered/` 保存待发送的临时图片，后续渲染会清理超过24小时的图片；数据库不在清理范围内。
 
 ## 开发与本地验证
 

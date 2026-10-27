@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT.parent))
 
 from astrbot_plugin_checkin_calendar.presentation import payload
 from astrbot_plugin_checkin_calendar.store import MonthSnapshot
+from astrbot_plugin_checkin_calendar.rendering import CalendarRenderer
 
 
 async def main(output: Path):
@@ -30,6 +31,7 @@ async def main(output: Path):
     }
     template = Environment(autoescape=True).from_string((ROOT / "templates/calendar.html").read_text(encoding="utf-8"))
     results = []
+    production = CalendarRenderer(output / "production")
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         try:
@@ -56,6 +58,11 @@ async def main(output: Path):
                 assert len(evidence["artwork"]) == 1 and evidence["artwork"][0]["loaded"]
                 assert {c["day"]:c["count"] for c in evidence["cells"] if c["count"]} == counts
                 await page.screenshot(path=str(output / f"{case}.png"), full_page=True)
+                actual = await production.render(
+                    (ROOT / "templates/calendar.html").read_text(encoding="utf-8"),
+                    payload(snapshot, name, date(2026,10,21), "Asia/Shanghai", message), {},
+                )
+                assert Path(actual).read_bytes() == (output / f"{case}.png").read_bytes(), case
                 phone = await browser.new_page(viewport={"width": 720, "height": 1}, device_scale_factor=0.6)
                 try:
                     await phone.set_content(template.render(**payload(snapshot, name, date(2026,10,21), "Asia/Shanghai", message)))
@@ -65,6 +72,7 @@ async def main(output: Path):
                     await phone.close()
                 results.append({"case": case, **evidence})
         finally:
+            await production.close()
             await browser.close()
     (output / "layout-checks.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"{len(results)} 个正式模板场景通过布局和计数检查。")
