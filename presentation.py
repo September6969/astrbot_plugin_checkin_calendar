@@ -84,3 +84,12 @@ def payload(snapshot: MonthSnapshot, name: str, today: date, timezone: str, mess
 def text_summary(snapshot: MonthSnapshot, name: str, timezone: str, message: str = "") -> str:
     details = "、".join(f"{day}日 {count}次" for day, count in sorted(snapshot.counts.items())) or "这个月还没有记录"
     return "\n".join(part for part in [message, f"{clean_name(name)}本月的🦌馆足迹 · {snapshot.month}", f"累计 {snapshot.total} 次，打卡 {snapshot.days} 天", details, f"日期时区：{timezone}", "查看：🦌 月历　撤销今天最近一次：🦌 撤销"] if part)
+
+
+def format_probability(percent: float) -> str:
+    """显示精度不参与抽签，微小非零概率不能标成零。"""
+    if percent == 0:
+        return "0%"
+    if percent < 0.1:
+        return "<0.1%"
+    return f"{percent:.1f}%"

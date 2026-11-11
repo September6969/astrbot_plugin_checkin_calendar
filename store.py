@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import secrets
 import sqlite3
 from dataclasses import dataclass
@@ -35,16 +36,23 @@ class RankingSnapshot:
     entries: list[RankEntry]
 
 
-def blast_probability(today_count: int, recent_count: int) -> int:
-    """按本次尝试前的成功次数计算；这是娱乐规则，不代表健康风险。"""
-    return min(80, max(0, today_count - 1) * 10 + max(0, recent_count - 4) * 3)
+SHORT_HALF_LIFE_HOURS = 6.0
+LONG_HALF_LIFE_HOURS = 36.0
+RISK_SCALE = 4.0
+DRAW_RESOLUTION = 1_000_000
+
+
+def blast_probability(short_load: float, long_load: float) -> float:
+    """双时间尺度负荷经 Weibull 累积风险映射，使用 expm1 保留低风险精度。"""
+    load = 0.75 * short_load + 0.25 * long_load
+    return 80.0 * -math.expm1(-(load / RISK_SCALE) ** 2)
 
 
 @dataclass(frozen=True)
 class RiskState:
     today_count: int
     recent_count: int
-    risk_percent: int
+    risk_percent: float
     available_at: str | None = None
     blast_cooling: bool = False
 
@@ -55,7 +63,7 @@ class Change:
     day: str | None = None
     replay: bool = False
     available_at: str | None = None
-    risk_percent: int = 0
+    risk_percent: float = 0
 
 
 class CalendarStore:
@@ -119,7 +127,7 @@ class CalendarStore:
                 if state.available_at:
                     result = Change("blast_cooldown" if state.blast_cooling else "cooldown", day,
                                     available_at=state.available_at, risk_percent=state.risk_percent)
-                elif state.risk_percent and secrets.randbelow(100) < state.risk_percent:
+                elif state.risk_percent and secrets.randbelow(DRAW_RESOLUTION) / (DRAW_RESOLUTION / 100) < state.risk_percent:
                     until = (now.astimezone(timezone.utc) + timedelta(hours=12)).isoformat()
                     con.execute("INSERT INTO blast_cooldowns(actor,available_at) VALUES (?,?) ON CONFLICT(actor) DO UPDATE SET available_at=excluded.available_at", (actor, until))
                     result = Change("blasted", day, available_at=until, risk_percent=state.risk_percent)
@@ -156,11 +164,19 @@ class CalendarStore:
         utc_now = now.astimezone(timezone.utc)
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
         recent_start = utc_now - timedelta(hours=72)
-        # 保留已撤销次数用于风险计算；绝对时间窗口不会在午夜整体清零。
-        recent, today = con.execute("""SELECT COUNT(*), COALESCE(SUM(julianday(created_at)>=julianday(?)),0)
-            FROM entries WHERE actor=? AND julianday(created_at)>julianday(?)
-            AND julianday(created_at)<=julianday(?)""",
-            (day_start.isoformat(), actor, recent_start.isoformat(), utc_now.isoformat())).fetchone()
+        # 全部成功记录按绝对时间衰减，不按午夜或72小时硬截断；撤销不消除负荷。
+        short_terms, long_terms = [], []
+        today = recent = 0
+        for (created_at,) in con.execute("SELECT created_at FROM entries WHERE actor=?", (actor,)):
+            when = self._timestamp(created_at)
+            if when > utc_now:
+                continue
+            age_hours = (utc_now - when).total_seconds() / 3600
+            short_terms.append(2.0 ** (-age_hours / SHORT_HALF_LIFE_HOURS))
+            long_terms.append(2.0 ** (-age_hours / LONG_HALF_LIFE_HOURS))
+            today += when >= day_start
+            recent += when > recent_start
+        probability = blast_probability(math.fsum(short_terms), math.fsum(long_terms))
         deadline = None
         blast_cooling = False
         blast = con.execute("SELECT available_at FROM blast_cooldowns WHERE actor=?", (actor,)).fetchone()
@@ -172,7 +188,7 @@ class CalendarStore:
             ordinary = self._timestamp(last[0]) + timedelta(hours=2)
             if ordinary > utc_now and (deadline is None or ordinary > deadline):
                 deadline = ordinary
-        return RiskState(today, recent, blast_probability(today, recent),
+        return RiskState(today, recent, probability,
                          deadline.isoformat() if deadline else None, blast_cooling)
 
     def risk(self, actor, now):
