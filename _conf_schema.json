@@ -22,5 +22,11 @@
     "type": "int",
     "default": 720,
     "hint": "范围 1～10080，仅用于新触发的炸膛。"
+  },
+  "cooldown_reset_admin_qq": {
+    "description": "允许重置冷却的管理员 QQ 号",
+    "type": "string",
+    "default": "",
+    "hint": "仅接受该 QQ 账号的 OneBot 11 消息。留空禁用。"
   }
 }

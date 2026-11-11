@@ -29,6 +29,8 @@ class CheckinCalendarPlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
         config = config or {}
+        admin_qq = str(config.get("cooldown_reset_admin_qq", "")).strip()
+        self.cooldown_reset_admin_qq = admin_qq if re.fullmatch(r"[1-9][0-9]{4,11}", admin_qq) else ""
         self.timezone_name = str(config.get("timezone", "Asia/Shanghai"))
         self.timezone = ZoneInfo(self.timezone_name)
         self.store = CalendarStore(
@@ -75,7 +77,7 @@ class CheckinCalendarPlugin(Star):
         if action == "帮助":
             yield event.plain_result(self._help())
             return
-        if action not in {"", "月历", "状态", "撤销", "排行"} or (value and action not in {"月历", "排行"}):
+        if action not in {"", "月历", "状态", "撤销", "排行", "重置冷却"} or (value and action not in {"月历", "排行", "重置冷却"}):
             yield event.plain_result(self._help())
             return
         platform = str(event.get_platform_id() or "")
@@ -84,8 +86,12 @@ class CheckinCalendarPlugin(Star):
         if not platform or not bot or not user:
             yield event.plain_result("未取得完整用户身份，暂时无法读取或记录。")
             return
-        actor = json.dumps([platform, bot, user], ensure_ascii=False)
         now = datetime.now(self.timezone)
+        if action == "重置冷却":
+            message = await self._reset_cooldown(event, platform, bot, user, value, now)
+            yield event.make_result().message(message).use_t2i(False)
+            return
+        actor = json.dumps([platform, bot, user], ensure_ascii=False)
         try:
             month = parse_month(value, now.date())
         except ValueError as exc:
@@ -207,6 +213,24 @@ class CheckinCalendarPlugin(Star):
             logger.warning("[打卡月历] 历史图片生成失败：%s", type(exc).__name__)
             return event.make_result().message(history_text(data)).use_t2i(False)
         return event.make_result().file_image(image).use_t2i(False)
+
+    async def _reset_cooldown(self, event, platform, bot, user, value, now):
+        if event.get_platform_name() != "aiocqhttp" or user != self.cooldown_reset_admin_qq:
+            return "仅指定的 QQ 管理员可重置冷却。"
+        target = value or user
+        if not re.fullmatch(r"[1-9][0-9]{4,11}", target):
+            return "用法：🦌 重置冷却 [QQ号]，省略 QQ 号时重置自己。"
+        actor = json.dumps([platform, bot, target], ensure_ascii=False)
+        message_id = str(getattr(event.message_obj, "message_id", "") or "")
+        token = json.dumps(["reset_cooldown", event.unified_msg_origin, message_id]) if message_id else None
+        try:
+            result = await asyncio.to_thread(self.store.change, actor, token, "reset_cooldown", now)
+        except (sqlite3.Error, OSError):
+            logger.exception("[打卡月历] 重置冷却异常")
+            return "重置结果暂时无法确认，请先查询状态。"
+        if result.replay:
+            return "这条重置命令已处理。"
+        return f"已重置 {target} 的普通冷却和炸膛冷却，历史记录及炸膛概率保留。"
 
     async def _ranking(self, event, platform, bot, month):
         try:
