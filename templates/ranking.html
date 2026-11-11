@@ -1,0 +1,13 @@
+{% autoescape true %}
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+{% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{font.data}}') format('woff2');font-display:block;unicode-range:{{font.unicode_range}}}{% endfor %}
+*{box-sizing:border-box}html,body{margin:0;width:720px;background:#fff;color:#262724;font-family:CalendarSans,sans-serif}
+body{padding:48px 48px 34px}.board{border:1px solid #eee;border-radius:28px;padding:34px 28px 28px}
+h1{font-size:31px;line-height:1.5;text-align:center;margin:0 0 14px;overflow-wrap:anywhere}.summary{font-size:20px;color:#93968f;text-align:center;line-height:1.8;margin-bottom:30px;overflow-wrap:anywhere}
+.row{display:grid;grid-template-columns:36px minmax(0,1fr) 6px 105px 65px;gap:16px;align-items:center;min-height:70px;padding:9px 0}
+.rank{font-size:25px;font-weight:700;text-align:center}.name{font-size:23px;line-height:1.45;text-align:right;overflow-wrap:anywhere}.bar{height:48px;border-radius:5px;background:var(--accent)}.count{font-size:24px;font-weight:700;text-align:right;overflow-wrap:anywhere}.days{font-size:19px;color:#9b9d97;text-align:right;overflow-wrap:anywhere}
+.footer{color:#a0a29b;font-size:16px;line-height:1.8;text-align:center;margin-top:32px}.empty{padding:55px 0;text-align:center;color:#96998f;font-size:24px}
+</style></head><body><main class="board"><h1>{{title}}</h1><div class="summary">总次数：{{total}} 次 · 参与人数：{{participants}} 人</div>
+{% for row in rows %}<div class="row" style="--accent:{{row.color}}"><div class="rank">{% if row.rank == 1 %}🥇{% elif row.rank == 2 %}🥈{% elif row.rank == 3 %}🥉{% else %}{{row.rank}}{% endif %}</div><div class="name">{{row.name}}</div><div class="bar"></div><div class="count">{{row.total}} 次</div><div class="days">{{row.days}} 天</div></div>{% else %}<div class="empty">本月暂无记录</div>{% endfor %}
+<div class="footer">机器人全部用户 · 仅展示前十名<br>按次数、活跃天数排序{% if unknown_names %}<br>匿名昵称暂未获取{% endif %}</div></main></body></html>
+{% endautoescape %}

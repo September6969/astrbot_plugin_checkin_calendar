@@ -12,7 +12,9 @@ NOW = datetime(2026, 10, 21, 23, 59, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 @pytest.fixture
-def store(tmp_path):
+def store(tmp_path, monkeypatch):
+    # 本文件验证原有事务规则，固定抽签为未触发；概率分支由专门测试覆盖。
+    monkeypatch.setattr("astrbot_plugin_checkin_calendar.store.secrets.randbelow", lambda n: 999999)
     return CalendarStore(tmp_path / "calendar.sqlite3")
 
 
