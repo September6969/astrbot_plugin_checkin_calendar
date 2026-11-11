@@ -26,6 +26,7 @@ def plugin(tmp_path):
     instance.template = (Path(__file__).parents[1] / "templates/calendar.html").read_text(encoding="utf-8")
     instance.html_render = AsyncMock(return_value="rendered.png")
     instance.calendar_renderer = CalendarRenderer(instance.html_render, None)
+    instance.cooldown_minutes = 120
     return instance
 
 

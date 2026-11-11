@@ -57,7 +57,7 @@ class CalendarStore:
         con.execute("PRAGMA busy_timeout=15000")
         return con
 
-    def change(self, actor: str, token: str | None, action: str, now: datetime) -> Change:
+    def change(self, actor: str, token: str | None, action: str, now: datetime, cooldown_minutes: int = 120) -> Change:
         if action not in {"add", "undo"}:
             raise ValueError("不支持的记录操作")
         if not actor or now.tzinfo is None or now.utcoffset() is None:
@@ -83,7 +83,7 @@ class CalendarStore:
                         raise sqlite3.DataError("历史记录时间无效") from None
                     if previous_time.tzinfo is None or previous_time.utcoffset() is None:
                         raise sqlite3.DataError("历史记录时间缺少时区")
-                    available = previous_time.astimezone(timezone.utc) + timedelta(hours=2)
+                    available = previous_time.astimezone(timezone.utc) + timedelta(minutes=cooldown_minutes)
                 if available is not None and now.astimezone(timezone.utc) < available:
                     result = Change("cooldown", day, available_at=available.isoformat())
                 else:

@@ -19,7 +19,23 @@ from .rendering import CalendarRenderer
 from .store import CalendarStore
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 撤销：撤销今天最近一次\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。每次记录至少间隔2小时，撤销不重置间隔。按本人独立保存，不开放他人查询。"
+DEFAULT_COOLDOWN_MINUTES = 120
+HELP_HEAD = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 撤销：撤销今天最近一次\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。"
+HELP_TAIL = "撤销不重置间隔。按本人独立保存，不开放他人查询。"
+
+
+def format_minutes(minutes: int) -> str:
+    """把冷却分钟数转成文案里的时长，如 120 -> 2小时。"""
+    hours, rest = divmod(max(0, int(minutes)), 60)
+    return (f"{hours}小时" if hours else "") + (f"{rest}分钟" if rest else "") or "0分钟"
+
+
+def read_int(config, key: str, default: int) -> int:
+    """读取整数配置项；缺失或无法转换时回退到 default。"""
+    try:
+        return int(config.get(key, default))
+    except (TypeError, ValueError):
+        return default
 
 
 class CheckinCalendarPlugin(Star):
@@ -33,6 +49,14 @@ class CheckinCalendarPlugin(Star):
         self.calendar_renderer = CalendarRenderer(self.html_render, getattr(html_renderer, "network_strategy", None),
                                                   preference_path=self.store.path.parent / "render-preference.json")
 
+        # cooldown 面板参数配置，单位：分钟；负数按 0 处理（不限制间隔）。
+        self.cooldown_minutes = max(0, read_int(config or {}, "cooldown", DEFAULT_COOLDOWN_MINUTES))
+
+    def _help(self) -> str:
+        if self.cooldown_minutes > 0:
+            return HELP_HEAD + f"每次记录至少间隔{format_minutes(self.cooldown_minutes)}，" + HELP_TAIL
+        return HELP_HEAD + "当前未开启记录间隔限制。" + HELP_TAIL
+
     @filter.regex(TRIGGER_PATTERN)
     async def checkin(self, event: AstrMessageEvent):
         text = event.get_message_str().strip()
@@ -40,7 +64,7 @@ class CheckinCalendarPlugin(Star):
             return
         parts = text.split()
         if len(parts) > 3:
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         action = parts[1] if len(parts) > 1 else ""
         value = parts[2] if len(parts) > 2 else ""
@@ -49,10 +73,10 @@ class CheckinCalendarPlugin(Star):
 
     async def _handle(self, event: AstrMessageEvent, action: str, value: str):
         if action == "帮助":
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         if action not in {"", "月历", "状态", "撤销"} or (value and action != "月历"):
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         platform = str(event.get_platform_id() or "")
         bot = str(event.get_self_id() or "")
@@ -73,7 +97,7 @@ class CheckinCalendarPlugin(Star):
             # 消息 ID 不存在时使用本次调用唯一标记；不通过消息文本猜测重复。
             token = json.dumps([event.unified_msg_origin, message_id]) if message_id else str(uuid.uuid4())
             try:
-                result = await asyncio.to_thread(self.store.change, actor, token, "undo" if action else "add", now)
+                result = await asyncio.to_thread(self.store.change, actor, token, "undo" if action else "add", now, self.cooldown_minutes)
             except (sqlite3.Error, OSError):
                 logger.exception("[打卡月历] 保存记录异常")
                 yield event.plain_result("保存结果暂时无法确认，请先用 🦌 月历 核对次数，再决定是否重新记录。")
@@ -83,7 +107,7 @@ class CheckinCalendarPlugin(Star):
                 hours, seconds = divmod(remaining, 3600)
                 minutes, seconds = divmod(seconds, 60)
                 wait = (f"{hours}小时" if hours else "") + (f"{minutes}分钟" if minutes else "") + (f"{seconds}秒" if seconds else "")
-                message = f"注意身体，歇会儿吧！（每120分钟只能记录一次哦）\n还需等待{wait}。"
+                message = f"注意身体，歇会儿吧！（每{self.cooldown_minutes}分钟只能记录一次哦）\n还需等待{wait}。"
             else:
                 message = {"added": "记录成功", "undone": "已撤销今天最近一次", "empty": "今天没有可撤销的记录"}[result.status]
             if result.replay:

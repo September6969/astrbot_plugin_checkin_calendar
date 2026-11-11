@@ -117,6 +117,20 @@ def test_existing_records_and_legacy_receipts_are_preserved(store):
     assert store.month("alice", "2026-10").total == 1
 
 
+def test_configured_cooldown_minutes_is_honoured(store):
+    store.change("alice", "first", "add", NOW, cooldown_minutes=30)
+    blocked = store.change("alice", "early", "add", NOW + timedelta(minutes=29, seconds=59), cooldown_minutes=30)
+    assert blocked.status == "cooldown"
+    assert datetime.fromisoformat(blocked.available_at) == NOW + timedelta(minutes=30)
+    assert store.change("alice", "on-time", "add", NOW + timedelta(minutes=30), cooldown_minutes=30).status == "added"
+
+
+def test_zero_cooldown_allows_back_to_back_records(store):
+    store.change("alice", "one", "add", NOW, cooldown_minutes=0)
+    assert store.change("alice", "two", "add", NOW, cooldown_minutes=0).status == "added"
+    assert store.month("alice", "2026-10").total == 2
+
+
 def test_cooldown_receipt_is_not_replayed_as_a_late_add(store):
     store.change("alice", "one", "add", NOW)
     store.change("alice", "blocked", "add", NOW + timedelta(minutes=1))

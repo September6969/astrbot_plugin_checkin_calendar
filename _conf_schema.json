@@ -4,5 +4,11 @@
     "type": "string",
     "default": "Asia/Shanghai",
     "hint": "默认北京时间，可填写 America/Los_Angeles 等 IANA 时区名。已有记录的日期不会随配置修改而移动。"
+  },
+  "cooldown": {
+    "description": "同一账号两次连续 🦌 的间隔时间，单位：分钟",
+    "type": "int",
+    "default": 120,
+    "hint": "默认为120分钟。没有上限。如果小于0，则自动变为0"
   }
 }
