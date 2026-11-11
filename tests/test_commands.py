@@ -263,9 +263,19 @@ async def test_reset_requires_configured_qq_and_preserves_history(plugin):
 
     own_actor = json.dumps(["qq-1", "bot1", admin])
     plugin.store.change(own_actor, "own", "add", now)
-    self_reset = event("self-reset", user=admin)
-    self_reset.get_platform_name = lambda: "aiocqhttp"
-    assert "已重置" in (await replies(plugin, self_reset, "重置冷却"))[0].chain[0].text
-    assert plugin.store.risk(own_actor, now).available_at is None
+    other_bot = json.dumps(["qq-1", "bot2", target])
+    plugin.store.change(other_bot, "other", "add", now)
+    blast_actor = json.dumps(["qq-1", "bot1", "345678901"])
+    plugin.store.change(blast_actor, "earlier", "add", now - timedelta(hours=3))
+    with patch("astrbot_plugin_checkin_calendar.store.secrets.randbelow", return_value=0):
+        assert plugin.store.change(blast_actor, "blast", "add", now).status == "blasted"
+    reset_all = event("reset-all", user=admin)
+    reset_all.get_platform_name = lambda: "aiocqhttp"
+    assert "全部用户" in (await replies(plugin, reset_all, "重置冷却"))[0].chain[0].text
+    for cleared in (own_actor, actor, blast_actor):
+        assert plugin.store.risk(cleared, now).available_at is None
+    assert plugin.store.risk(other_bot, now).available_at is not None
+    assert plugin.store.change(actor, "after-bulk", "add", now).status == "added"
+    assert "已处理" in (await replies(plugin, reset_all, "重置冷却"))[0].chain[0].text
     assert plugin.store.risk(actor, now).available_at is not None
     plugin.html_render.assert_not_awaited()

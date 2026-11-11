@@ -235,7 +235,7 @@ class CalendarStore:
         return con
 
     def change(self, actor: str, token: str | None, action: str, now: datetime) -> Change:
-        if action not in {"add", "undo", "reset_cooldown"}:
+        if action not in {"add", "undo", "reset_cooldown", "reset_all_cooldowns"}:
             raise ValueError("不支持的记录操作")
         if not actor or now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("缺少用户身份或时区")
@@ -263,6 +263,19 @@ class CalendarStore:
                     entry_id = con.execute("INSERT INTO entries(actor,day,created_at) VALUES (?,?,?)",
                                            (actor, day, now.isoformat())).lastrowid
                     result = Change("added", day, risk_percent=state.risk_percent)
+            elif action == "reset_all_cooldowns":
+                # 按身份的前两段限定平台实例和机器人，保留其他机器人的冷却。
+                scope = json.dumps(json.loads(actor)[:2], ensure_ascii=False)[:-1] + ", "
+                params = (len(scope), scope)
+                con.execute(
+                    """INSERT INTO cooldown_resets(actor,last_entry_id)
+                    SELECT actor, MAX(id) FROM entries WHERE substr(actor, 1, ?) = ?
+                    GROUP BY actor
+                    ON CONFLICT(actor) DO UPDATE SET last_entry_id=excluded.last_entry_id""",
+                    params,
+                )
+                con.execute("DELETE FROM blast_cooldowns WHERE substr(actor, 1, ?) = ?", params)
+                result = Change("cooldowns_reset", day)
             elif action == "reset_cooldown":
                 # 仅豁免重置前的记录，保留计数和概率使用的历史。
                 con.execute(
