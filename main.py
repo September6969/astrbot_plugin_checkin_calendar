@@ -179,19 +179,20 @@ class CheckinCalendarPlugin(Star):
     async def _reset_cooldown(self, event, platform, bot, user, value, now):
         if event.get_platform_name() != "aiocqhttp" or user != self.cooldown_reset_admin_qq:
             return "仅指定的 QQ 管理员可重置冷却。"
-        target = value or user
-        if not re.fullmatch(r"[1-9][0-9]{4,11}", target):
-            return "用法：🦌 重置冷却 [QQ号]，省略 QQ 号时重置自己。"
-        actor = json.dumps([platform, bot, target], ensure_ascii=False)
+        if value and not re.fullmatch(r"[1-9][0-9]{4,11}", value):
+            return "用法：🦌 重置冷却 [QQ号]，省略 QQ 号时重置当前机器人全部用户。"
+        actor = json.dumps([platform, bot, value or user], ensure_ascii=False)
+        action = "reset_cooldown" if value else "reset_all_cooldowns"
         message_id = str(getattr(event.message_obj, "message_id", "") or "")
         token = json.dumps(["reset_cooldown", event.unified_msg_origin, message_id]) if message_id else None
         try:
-            result = await asyncio.to_thread(self.store.change, actor, token, "reset_cooldown", now)
+            result = await asyncio.to_thread(self.store.change, actor, token, action, now)
         except (sqlite3.Error, OSError):
             logger.exception("[打卡月历] 重置冷却异常")
             return "重置结果暂时无法确认，请先查询状态。"
         if result.replay:
             return "这条重置命令已处理。"
+        target = value or "当前机器人全部用户"
         return f"已重置 {target} 的普通冷却和炸膛冷却，历史记录及炸膛概率保留。"
 
     async def _ranking(self, event, platform, bot, month):
