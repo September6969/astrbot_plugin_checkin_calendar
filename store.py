@@ -110,6 +110,10 @@ class CalendarStore:
                     actor TEXT PRIMARY KEY,
                     available_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS cooldown_resets (
+                    actor TEXT PRIMARY KEY,
+                    last_entry_id INTEGER NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS display_names (
                     actor TEXT PRIMARY KEY,
                     name TEXT NOT NULL
@@ -132,7 +136,7 @@ class CalendarStore:
         return con
 
     def change(self, actor: str, token: str | None, action: str, now: datetime) -> Change:
-        if action not in {"add", "undo"}:
+        if action not in {"add", "undo", "reset_cooldown"}:
             raise ValueError("不支持的记录操作")
         if not actor or now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("缺少用户身份或时区")
@@ -158,6 +162,16 @@ class CalendarStore:
                 else:
                     con.execute("INSERT INTO entries(actor,day,created_at) VALUES (?,?,?)", (actor, day, now.isoformat()))
                     result = Change("added", day, risk_percent=state.risk_percent)
+            elif action == "reset_cooldown":
+                # 仅豁免重置前的记录，保留计数和概率使用的历史。
+                con.execute(
+                    """INSERT INTO cooldown_resets(actor,last_entry_id)
+                    SELECT ?, COALESCE(MAX(id), 0) FROM entries WHERE actor=?
+                    ON CONFLICT(actor) DO UPDATE SET last_entry_id=excluded.last_entry_id""",
+                    (actor, actor),
+                )
+                con.execute("DELETE FROM blast_cooldowns WHERE actor=?", (actor,))
+                result = Change("cooldown_reset", day)
             else:
                 # 只撤销今天最后一次，避免跨日误删历史记录。
                 row = con.execute("SELECT id FROM entries WHERE actor=? AND day=? AND undone=0 ORDER BY id DESC LIMIT 1", (actor, day)).fetchone()
@@ -207,7 +221,12 @@ class CalendarStore:
         if blast and self._timestamp(blast[0]) > utc_now:
             deadline = self._timestamp(blast[0])
             blast_cooling = True
-        last = con.execute("SELECT created_at FROM entries WHERE actor=? ORDER BY id DESC LIMIT 1", (actor,)).fetchone()
+        last = con.execute(
+            """SELECT created_at FROM entries WHERE actor=?
+            AND id > COALESCE((SELECT last_entry_id FROM cooldown_resets WHERE actor=?), 0)
+            ORDER BY id DESC LIMIT 1""",
+            (actor, actor),
+        ).fetchone()
         if last and self.cooldown_minutes:
             ordinary = self._timestamp(last[0]) + timedelta(minutes=self.cooldown_minutes)
             if ordinary > utc_now and (deadline is None or ordinary > deadline):

@@ -221,3 +221,51 @@ async def test_readonly_retry_after_render_failure_does_not_write_again(plugin):
 async def test_terminate_closes_browser(plugin):
     await plugin.terminate()
     plugin.calendar_renderer.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reset_requires_configured_qq_and_preserves_history(plugin):
+    import json
+    from unittest.mock import patch
+
+    admin = "123456789"
+    target = "987654321"
+    actor = json.dumps(["qq-1", "bot1", target])
+    plugin.cooldown_reset_admin_qq = admin
+    now = datetime.now(plugin.timezone)
+    plugin.store.change(actor, "first", "add", now - timedelta(hours=3))
+    with patch("astrbot_plugin_checkin_calendar.store.secrets.randbelow", return_value=0):
+        assert plugin.store.change(actor, "blast", "add", now).status == "blasted"
+    risk_before = plugin.store.risk(actor, now).risk_percent
+
+    unauthorized = event("reset-denied", user=target)
+    unauthorized.get_platform_name = lambda: "aiocqhttp"
+    wrong_platform = event("wrong-platform", user=admin)
+    wrong_platform.get_platform_name = lambda: "telegram"
+    for request in (unauthorized, wrong_platform):
+        denied = (await replies(plugin, request, "重置冷却", target))[0]
+        assert "仅指定" in denied.chain[0].text
+    assert plugin.store.risk(actor, now).blast_cooling
+
+    request = event("reset", user=admin)
+    request.get_platform_name = lambda: "aiocqhttp"
+    reset = (await replies(plugin, request, "重置冷却", target))[0]
+    assert "已重置" in reset.chain[0].text
+    state = plugin.store.risk(actor, now)
+    assert state.available_at is None
+    assert state.risk_percent == risk_before
+    assert plugin.store.month(actor, now.strftime("%Y-%m")).total == 1
+
+    assert plugin.store.change(actor, "new", "add", now).status == "added"
+    replay = (await replies(plugin, request, "重置冷却", target))[0]
+    assert "已处理" in replay.chain[0].text
+    assert plugin.store.risk(actor, now).available_at is not None
+
+    own_actor = json.dumps(["qq-1", "bot1", admin])
+    plugin.store.change(own_actor, "own", "add", now)
+    self_reset = event("self-reset", user=admin)
+    self_reset.get_platform_name = lambda: "aiocqhttp"
+    assert "已重置" in (await replies(plugin, self_reset, "重置冷却"))[0].chain[0].text
+    assert plugin.store.risk(own_actor, now).available_at is None
+    assert plugin.store.risk(actor, now).available_at is not None
+    plugin.html_render.assert_not_awaited()
