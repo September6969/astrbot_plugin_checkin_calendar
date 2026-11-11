@@ -43,6 +43,38 @@ def test_blast_no_count_and_twelve_hours_persist_across_restart_undo_and_midnigh
     assert restarted.change('alice','ready','add',now+timedelta(hours=12)).status=='added'
 
 
+def test_configured_blast_and_existing_deadline_survive_reconfiguration(tmp_path, monkeypatch):
+    store = CalendarStore(tmp_path / "db", cooldown_minutes=30,
+                          blast_cooldown_minutes=45, blast_max_percent=40)
+    store.change("alice", "first", "add", NOW)
+    draw = Mock(return_value=0)
+    monkeypatch.setattr("astrbot_plugin_checkin_calendar.store.secrets.randbelow", draw)
+    ready = NOW + timedelta(minutes=30)
+    assert store.change("alice", "early", "add", ready - timedelta(seconds=1)).status == "cooldown"
+    draw.assert_not_called()
+    result = store.change("alice", "blast", "add", ready)
+    assert result.status == "blasted"
+    assert result.risk_percent == pytest.approx(blast_probability(2 ** (-0.5 / 6), 2 ** (-0.5 / 36)) / 2)
+    deadline = ready + timedelta(minutes=45)
+    assert datetime.fromisoformat(result.available_at) == deadline
+
+    restarted = CalendarStore(store.path, cooldown_minutes=0,
+                              blast_cooldown_minutes=1, blast_max_percent=0)
+    assert restarted.change("alice", "still-blocked", "add", deadline - timedelta(seconds=1)).status == "blast_cooldown"
+    assert restarted.change("alice", "blast", "add", deadline).replay
+    assert restarted.change("alice", "ready", "add", deadline).status == "added"
+    assert restarted.change("alice", "immediate", "add", deadline).status == "added"
+    draw.assert_called_once_with(1_000_000)
+
+
+def test_oversized_cooldown_cannot_overflow_datetime(tmp_path):
+    store = CalendarStore(tmp_path / "db", cooldown_minutes=10**12)
+    store.change("alice", "first", "add", NOW)
+    result = store.change("alice", "second", "add", NOW + timedelta(seconds=1))
+    assert result.status == "cooldown"
+    assert datetime.fromisoformat(result.available_at) == NOW + timedelta(days=7)
+
+
 def test_duplicate_and_parallel_messages_only_roll_once(tmp_path,monkeypatch):
     store=CalendarStore(tmp_path/'db');seed(store)
     draw=Mock(return_value=0)

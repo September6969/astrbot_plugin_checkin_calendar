@@ -40,12 +40,26 @@ SHORT_HALF_LIFE_HOURS = 6.0
 LONG_HALF_LIFE_HOURS = 36.0
 RISK_SCALE = 4.0
 DRAW_RESOLUTION = 1_000_000
+DEFAULT_COOLDOWN_MINUTES = 120
+DEFAULT_BLAST_COOLDOWN_MINUTES = 720
+DEFAULT_BLAST_MAX_PERCENT = 80
+MAX_COOLDOWN_MINUTES = 10_080
 
 
-def blast_probability(short_load: float, long_load: float) -> float:
+def bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
+    """配置超出范围时限制在边界，格式无效时使用默认值。"""
+    if type(value) not in (int, str):
+        return default
+    try:
+        return min(maximum, max(minimum, int(value)))
+    except ValueError:
+        return default
+
+
+def blast_probability(short_load: float, long_load: float, max_percent: float = DEFAULT_BLAST_MAX_PERCENT) -> float:
     """双时间尺度负荷经 Weibull 累积风险映射，使用 expm1 保留低风险精度。"""
     load = 0.75 * short_load + 0.25 * long_load
-    return 80.0 * -math.expm1(-(load / RISK_SCALE) ** 2)
+    return max_percent * -math.expm1(-(load / RISK_SCALE) ** 2)
 
 
 @dataclass(frozen=True)
@@ -67,7 +81,17 @@ class Change:
 
 
 class CalendarStore:
-    def __init__(self, path: Path):
+    def __init__(
+        self, path: Path, *,
+        cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
+        blast_cooldown_minutes: int = DEFAULT_BLAST_COOLDOWN_MINUTES,
+        blast_max_percent: int = DEFAULT_BLAST_MAX_PERCENT,
+    ):
+        self.cooldown_minutes = bounded_int(cooldown_minutes, DEFAULT_COOLDOWN_MINUTES, 0, MAX_COOLDOWN_MINUTES)
+        self.blast_cooldown_minutes = bounded_int(
+            blast_cooldown_minutes, DEFAULT_BLAST_COOLDOWN_MINUTES, 1, MAX_COOLDOWN_MINUTES,
+        )
+        self.blast_max_percent = bounded_int(blast_max_percent, DEFAULT_BLAST_MAX_PERCENT, 0, 100)
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         con = self._connect()
@@ -128,7 +152,7 @@ class CalendarStore:
                     result = Change("blast_cooldown" if state.blast_cooling else "cooldown", day,
                                     available_at=state.available_at, risk_percent=state.risk_percent)
                 elif state.risk_percent and secrets.randbelow(DRAW_RESOLUTION) / (DRAW_RESOLUTION / 100) < state.risk_percent:
-                    until = (now.astimezone(timezone.utc) + timedelta(hours=12)).isoformat()
+                    until = (now.astimezone(timezone.utc) + timedelta(minutes=self.blast_cooldown_minutes)).isoformat()
                     con.execute("INSERT INTO blast_cooldowns(actor,available_at) VALUES (?,?) ON CONFLICT(actor) DO UPDATE SET available_at=excluded.available_at", (actor, until))
                     result = Change("blasted", day, available_at=until, risk_percent=state.risk_percent)
                 else:
@@ -176,7 +200,7 @@ class CalendarStore:
             long_terms.append(2.0 ** (-age_hours / LONG_HALF_LIFE_HOURS))
             today += when >= day_start
             recent += when > recent_start
-        probability = blast_probability(math.fsum(short_terms), math.fsum(long_terms))
+        probability = blast_probability(math.fsum(short_terms), math.fsum(long_terms), self.blast_max_percent)
         deadline = None
         blast_cooling = False
         blast = con.execute("SELECT available_at FROM blast_cooldowns WHERE actor=?", (actor,)).fetchone()
@@ -184,10 +208,11 @@ class CalendarStore:
             deadline = self._timestamp(blast[0])
             blast_cooling = True
         last = con.execute("SELECT created_at FROM entries WHERE actor=? ORDER BY id DESC LIMIT 1", (actor,)).fetchone()
-        if last:
-            ordinary = self._timestamp(last[0]) + timedelta(hours=2)
+        if last and self.cooldown_minutes:
+            ordinary = self._timestamp(last[0]) + timedelta(minutes=self.cooldown_minutes)
             if ordinary > utc_now and (deadline is None or ordinary > deadline):
                 deadline = ordinary
+                blast_cooling = False
         return RiskState(today, recent, probability,
                          deadline.isoformat() if deadline else None, blast_cooling)
 

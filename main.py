@@ -16,21 +16,38 @@ from astrbot.api.star import Context, Star, StarTools
 
 from .presentation import clean_name, parse_month, payload, text_summary, format_probability
 from .rendering import CalendarRenderer
-from .store import CalendarStore
+from .store import CalendarStore, DEFAULT_COOLDOWN_MINUTES, DEFAULT_BLAST_COOLDOWN_MINUTES, DEFAULT_BLAST_MAX_PERCENT
 from .ranking import ranking_payload, ranking_text, resolve_names
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。普通间隔2小时；短期和近期越频繁，炸膛概率越高（最高80%）；休息时平滑下降，不在午夜重置。炸膛不计数，冷却12小时；撤销不降低风险或解除冷却。这是娱乐机制。个人月历仅本人可查，排行为机器人全部用户。"
+HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
 
 
 class CheckinCalendarPlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
-        self.timezone_name = str((config or {}).get("timezone", "Asia/Shanghai"))
+        config = config or {}
+        self.timezone_name = str(config.get("timezone", "Asia/Shanghai"))
         self.timezone = ZoneInfo(self.timezone_name)
-        self.store = CalendarStore(StarTools.get_data_dir("astrbot_plugin_checkin_calendar") / "calendar.sqlite3")
+        self.store = CalendarStore(
+            StarTools.get_data_dir("astrbot_plugin_checkin_calendar") / "calendar.sqlite3",
+            cooldown_minutes=config.get("cooldown", DEFAULT_COOLDOWN_MINUTES),
+            blast_cooldown_minutes=config.get("blast_cooldown_minutes", DEFAULT_BLAST_COOLDOWN_MINUTES),
+            blast_max_percent=config.get("blast_max_percent", DEFAULT_BLAST_MAX_PERCENT),
+        )
         self.template = (Path(__file__).parent / "templates/calendar.html").read_text(encoding="utf-8")
         self.calendar_renderer = CalendarRenderer(self.store.path.parent / "rendered")
+
+    def _help(self) -> str:
+        ordinary = self.store.cooldown_minutes
+        ordinary_help = f"普通间隔 {ordinary} 分钟。" if ordinary else "普通间隔已关闭。"
+        cap = self.store.blast_max_percent
+        blast_help = (
+            f"频繁打卡会提高炸膛概率（最高 {cap}%），休息后逐渐下降。"
+            f"炸膛当次不计数，冷却 {self.store.blast_cooldown_minutes} 分钟。"
+            if cap else "新炸膛已关闭，已有冷却按原截止时间结束。"
+        )
+        return HELP + "\n" + ordinary_help + blast_help
 
     async def terminate(self):
         await self.calendar_renderer.close()
@@ -42,7 +59,7 @@ class CheckinCalendarPlugin(Star):
             return
         parts = text.split()
         if len(parts) > 3:
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         action = parts[1] if len(parts) > 1 else ""
         value = parts[2] if len(parts) > 2 else ""
@@ -51,10 +68,10 @@ class CheckinCalendarPlugin(Star):
 
     async def _handle(self, event: AstrMessageEvent, action: str, value: str):
         if action == "帮助":
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         if action not in {"", "月历", "状态", "撤销", "排行"} or (value and action not in {"月历", "排行"}):
-            yield event.plain_result(HELP)
+            yield event.plain_result(self._help())
             return
         platform = str(event.get_platform_id() or "")
         bot = str(event.get_self_id() or "")
@@ -96,7 +113,7 @@ class CheckinCalendarPlugin(Star):
                 minutes, seconds = divmod(seconds, 60)
                 deadline = until.astimezone(self.timezone).strftime("%m-%d %H:%M:%S")
                 if result.status == "blasted":
-                    message = f"💥 炸膛了！本次概率 {format_probability(result.risk_percent)}，本次不计数。进入12小时冷却。"
+                    message = f"💥 炸膛了！本次概率 {format_probability(result.risk_percent)}，本次不计数。"
                 else:
                     message = "还在炸膛冷却中，歇会儿吧！本次不计数，也不会延长冷却。"
                 message += f"\n冷却至 {deadline}（{self.timezone_name}），剩余{hours}小时{minutes}分钟{seconds}秒。"
@@ -111,7 +128,7 @@ class CheckinCalendarPlugin(Star):
                 hours, seconds = divmod(remaining, 3600)
                 minutes, seconds = divmod(seconds, 60)
                 wait = (f"{hours}小时" if hours else "") + (f"{minutes}分钟" if minutes else "") + (f"{seconds}秒" if seconds else "")
-                message = f"注意身体，歇会儿吧！（每120分钟只能记录一次哦）\n还需等待{wait}。"
+                message = f"注意身体，歇会儿吧！（每{self.store.cooldown_minutes}分钟只能记录一次哦）\n还需等待{wait}。"
             else:
                 message = {"added": "记录成功", "undone": "已撤销今天最近一次", "empty": "今天没有可撤销的记录"}[result.status]
             if result.status == "added" and result.risk_percent:
@@ -132,7 +149,7 @@ class CheckinCalendarPlugin(Star):
                     deadline = datetime.fromisoformat(state.available_at).astimezone(self.timezone).strftime("%m-%d %H:%M:%S")
                     message += f"\n{'炸膛' if state.blast_cooling else '普通'}冷却至 {deadline}（{self.timezone_name}）"
                 else:
-                    message += "\n当前无冷却；概率会随时间和次数变化。"
+                    message += "\n当前无冷却。"
         except (sqlite3.Error, OSError):
             logger.exception("[打卡月历] 读取月历异常")
             yield event.plain_result((message + "。" if message else "") + "月历暂时读取失败，请稍后用 🦌 月历 查询。")

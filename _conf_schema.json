@@ -4,5 +4,23 @@
     "type": "string",
     "default": "Asia/Shanghai",
     "hint": "默认北京时间，可填写 America/Los_Angeles 等 IANA 时区名。已有记录的日期不会随配置修改而移动。"
+  },
+  "cooldown": {
+    "description": "普通打卡间隔（分钟）",
+    "type": "int",
+    "default": 120,
+    "hint": "范围 0～10080。0 关闭普通间隔。修改后按上次成功记录时间重新计算。"
+  },
+  "blast_max_percent": {
+    "description": "炸膛概率上限（%）",
+    "type": "int",
+    "default": 80,
+    "hint": "范围 0～100。0 关闭新炸膛，已有冷却按原截止时间结束。"
+  },
+  "blast_cooldown_minutes": {
+    "description": "炸膛冷却时长（分钟）",
+    "type": "int",
+    "default": 720,
+    "hint": "范围 1～10080，仅用于新触发的炸膛。"
   }
 }

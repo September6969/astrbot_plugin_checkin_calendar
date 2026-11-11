@@ -23,7 +23,7 @@ async def test_blast_message_at_and_status_and_duplicate_do_not_render_or_reroll
     monkeypatch.setattr('astrbot_plugin_checkin_calendar.store.secrets.randbelow',draw)
     result=(await replies(plugin,event('blast')))[0]
     assert [type(x) for x in result.chain]==[At,Plain]
-    assert '炸膛了' in result.chain[1].text and '12小时' in result.chain[1].text and '11.0%' in result.chain[1].text
+    assert '炸膛了' in result.chain[1].text and '冷却至 11-11 00:00:00' in result.chain[1].text and '11.0%' in result.chain[1].text
     assert result.use_t2i_ is False and str(result.chain[0].qq)=='alice'
     plugin.html_render.assert_not_awaited()
     again=(await replies(plugin,event('blast')))[0]
