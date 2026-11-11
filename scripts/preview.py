@@ -21,6 +21,7 @@ from astrbot_plugin_checkin_calendar.rendering import CalendarRenderer
 async def main(output: Path):
     output.mkdir(parents=True, exist_ok=True)
     cases = {
+        "blast-status": ("2026-11", "测试用户", {10: 2}, "下次有效打卡炸膛概率：10% · 当天 2 次 · 近72小时 2 次（含已撤销）\n炸膛冷却至 11-11 00:00:00（Asia/Shanghai）"),
         "normal": ("2026-10", "那一个少年", {3: 1, 4: 1, 7: 2, 8: 2, 9: 1, 12: 3, 14: 2, 16: 4, 21: 2}, "记录成功"),
         "empty": ("2026-10", "新朋友", {}, ""),
         "long-name": ("2026-10", "W" * 40, {1: 1, 21: 10}, "记录成功"),

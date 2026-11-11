@@ -20,7 +20,7 @@ from .store import CalendarStore
 from .ranking import ranking_payload, ranking_text, resolve_names
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。每次记录至少间隔2小时，撤销不重置间隔。按本人独立保存，不开放他人查询。"
+HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。普通间隔2小时；当天和近72小时越频繁，炸膛概率越高（最高80%）。炸膛不计数，冷却12小时；撤销不降低风险或解除冷却。这是娱乐机制。个人月历仅本人可查，排行为机器人全部用户。"
 
 
 class CheckinCalendarPlugin(Star):
@@ -89,6 +89,23 @@ class CheckinCalendarPlugin(Star):
                 logger.exception("[打卡月历] 保存记录异常")
                 yield event.plain_result("保存结果暂时无法确认，请先用 🦌 月历 核对次数，再决定是否重新记录。")
                 return
+            if result.status in {"blasted", "blast_cooldown"}:
+                until = datetime.fromisoformat(result.available_at)
+                remaining = max(0, math.ceil((until - now).total_seconds()))
+                hours, seconds = divmod(remaining, 3600)
+                minutes, seconds = divmod(seconds, 60)
+                deadline = until.astimezone(self.timezone).strftime("%m-%d %H:%M:%S")
+                if result.status == "blasted":
+                    message = f"💥 炸膛了！本次概率 {result.risk_percent}%，本次不计数。进入12小时冷却。"
+                else:
+                    message = "还在炸膛冷却中，歇会儿吧！本次不计数，也不会延长冷却。"
+                message += f"\n冷却至 {deadline}（{self.timezone_name}），剩余{hours}小时{minutes}分钟{seconds}秒。"
+                if result.replay:
+                    message = "这条消息已处理，以下为当时结果，不会重新抽签或延长冷却。\n" + message
+                    if not remaining:
+                        message += "\n该次冷却已结束；请发送新消息查询或记录。"
+                yield event.make_result().at(clean_name(event.get_sender_name() or "我"), user).message("\n" + message).use_t2i(False)
+                return
             if result.status == "cooldown":
                 remaining = max(1, math.ceil((datetime.fromisoformat(result.available_at) - now).total_seconds()))
                 hours, seconds = divmod(remaining, 3600)
@@ -97,6 +114,8 @@ class CheckinCalendarPlugin(Star):
                 message = f"注意身体，歇会儿吧！（每120分钟只能记录一次哦）\n还需等待{wait}。"
             else:
                 message = {"added": "记录成功", "undone": "已撤销今天最近一次", "empty": "今天没有可撤销的记录"}[result.status]
+            if result.status == "added" and result.risk_percent:
+                message += f"（本次炸膛概率 {result.risk_percent}%，未触发）"
             if result.replay:
                 message = "这条消息已处理，未重复计数或撤销"
             if result.status == "cooldown":
@@ -106,6 +125,14 @@ class CheckinCalendarPlugin(Star):
                 return
         try:
             snapshot = await asyncio.to_thread(self.store.month, actor, month)
+            if action == "状态":
+                state = await asyncio.to_thread(self.store.risk, actor, now)
+                message = f"下次有效打卡炸膛概率：{state.risk_percent}% · 当天 {state.today_count} 次 · 近72小时 {state.recent_count} 次（含已撤销）"
+                if state.available_at:
+                    deadline = datetime.fromisoformat(state.available_at).astimezone(self.timezone).strftime("%m-%d %H:%M:%S")
+                    message += f"\n{'炸膛' if state.blast_cooling else '普通'}冷却至 {deadline}（{self.timezone_name}）"
+                else:
+                    message += "\n当前无冷却；概率会随时间和次数变化。"
         except (sqlite3.Error, OSError):
             logger.exception("[打卡月历] 读取月历异常")
             yield event.plain_result((message + "。" if message else "") + "月历暂时读取失败，请稍后用 🦌 月历 查询。")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -34,12 +35,27 @@ class RankingSnapshot:
     entries: list[RankEntry]
 
 
+def blast_probability(today_count: int, recent_count: int) -> int:
+    """按本次尝试前的成功次数计算；这是娱乐规则，不代表健康风险。"""
+    return min(80, max(0, today_count - 1) * 10 + max(0, recent_count - 4) * 3)
+
+
+@dataclass(frozen=True)
+class RiskState:
+    today_count: int
+    recent_count: int
+    risk_percent: int
+    available_at: str | None = None
+    blast_cooling: bool = False
+
+
 @dataclass(frozen=True)
 class Change:
     status: str
     day: str | None = None
     replay: bool = False
     available_at: str | None = None
+    risk_percent: int = 0
 
 
 class CalendarStore:
@@ -58,6 +74,10 @@ class CalendarStore:
                 );
                 CREATE INDEX IF NOT EXISTS entries_actor_day ON entries(actor, day, undone);
                 CREATE INDEX IF NOT EXISTS entries_actor_recent ON entries(actor, id DESC);
+                CREATE TABLE IF NOT EXISTS blast_cooldowns (
+                    actor TEXT PRIMARY KEY,
+                    available_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS display_names (
                     actor TEXT PRIMARY KEY,
                     name TEXT NOT NULL
@@ -95,22 +115,17 @@ class CalendarStore:
                     return Change(**json.loads(previous[0]), replay=True)
             day = now.date().isoformat()
             if action == "add":
-                # 包括已撤销记录，防止撤销绕过间隔；UTC 比较不受午夜或时区切换影响。
-                last = con.execute("SELECT created_at FROM entries WHERE actor=? ORDER BY id DESC LIMIT 1", (actor,)).fetchone()
-                available = None
-                if last:
-                    try:
-                        previous_time = datetime.fromisoformat(last[0])
-                    except (ValueError, TypeError):
-                        raise sqlite3.DataError("历史记录时间无效") from None
-                    if previous_time.tzinfo is None or previous_time.utcoffset() is None:
-                        raise sqlite3.DataError("历史记录时间缺少时区")
-                    available = previous_time.astimezone(timezone.utc) + timedelta(hours=2)
-                if available is not None and now.astimezone(timezone.utc) < available:
-                    result = Change("cooldown", day, available_at=available.isoformat())
+                state = self._risk(con, actor, now)
+                if state.available_at:
+                    result = Change("blast_cooldown" if state.blast_cooling else "cooldown", day,
+                                    available_at=state.available_at, risk_percent=state.risk_percent)
+                elif state.risk_percent and secrets.randbelow(100) < state.risk_percent:
+                    until = (now.astimezone(timezone.utc) + timedelta(hours=12)).isoformat()
+                    con.execute("INSERT INTO blast_cooldowns(actor,available_at) VALUES (?,?) ON CONFLICT(actor) DO UPDATE SET available_at=excluded.available_at", (actor, until))
+                    result = Change("blasted", day, available_at=until, risk_percent=state.risk_percent)
                 else:
                     con.execute("INSERT INTO entries(actor,day,created_at) VALUES (?,?,?)", (actor, day, now.isoformat()))
-                    result = Change("added", day)
+                    result = Change("added", day, risk_percent=state.risk_percent)
             else:
                 # 只撤销今天最后一次，避免跨日误删历史记录。
                 row = con.execute("SELECT id FROM entries WHERE actor=? AND day=? AND undone=0 ORDER BY id DESC LIMIT 1", (actor, day)).fetchone()
@@ -118,12 +133,55 @@ class CalendarStore:
                     con.execute("UPDATE entries SET undone=1 WHERE id=?", (row[0],))
                 result = Change("undone" if row else "empty", day)
             if token:
-                con.execute("INSERT INTO receipts(actor,token,result) VALUES (?,?,?)", (actor, token, json.dumps({"status": result.status, "day": result.day, "available_at": result.available_at})))
+                con.execute("INSERT INTO receipts(actor,token,result) VALUES (?,?,?)", (actor, token, json.dumps({"status": result.status, "day": result.day, "available_at": result.available_at, "risk_percent": result.risk_percent})))
             con.commit()
             return result
         except BaseException:
             con.rollback()
             raise
+        finally:
+            con.close()
+
+    @staticmethod
+    def _timestamp(value):
+        try:
+            value = datetime.fromisoformat(value)
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError("无时区")
+            return value.astimezone(timezone.utc)
+        except (ValueError, TypeError):
+            raise sqlite3.DataError("历史时间无效或缺少时区") from None
+
+    def _risk(self, con, actor, now):
+        utc_now = now.astimezone(timezone.utc)
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+        recent_start = utc_now - timedelta(hours=72)
+        # 保留已撤销次数用于风险计算；绝对时间窗口不会在午夜整体清零。
+        recent, today = con.execute("""SELECT COUNT(*), COALESCE(SUM(julianday(created_at)>=julianday(?)),0)
+            FROM entries WHERE actor=? AND julianday(created_at)>julianday(?)
+            AND julianday(created_at)<=julianday(?)""",
+            (day_start.isoformat(), actor, recent_start.isoformat(), utc_now.isoformat())).fetchone()
+        deadline = None
+        blast_cooling = False
+        blast = con.execute("SELECT available_at FROM blast_cooldowns WHERE actor=?", (actor,)).fetchone()
+        if blast and self._timestamp(blast[0]) > utc_now:
+            deadline = self._timestamp(blast[0])
+            blast_cooling = True
+        last = con.execute("SELECT created_at FROM entries WHERE actor=? ORDER BY id DESC LIMIT 1", (actor,)).fetchone()
+        if last:
+            ordinary = self._timestamp(last[0]) + timedelta(hours=2)
+            if ordinary > utc_now and (deadline is None or ordinary > deadline):
+                deadline = ordinary
+        return RiskState(today, recent, blast_probability(today, recent),
+                         deadline.isoformat() if deadline else None, blast_cooling)
+
+    def risk(self, actor, now):
+        if not actor or now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("缺少用户身份或时区")
+        con = self._connect()
+        try:
+            con.execute("BEGIN")
+            return self._risk(con, actor, now)
         finally:
             con.close()
 
