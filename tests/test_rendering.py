@@ -1,10 +1,13 @@
 """本地浏览器的隔离、取消、故障恢复和生命周期回归。"""
 import asyncio
+from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from astrbot_plugin_checkin_calendar.rendering import CalendarRenderer
+from PIL import Image, ImageDraw
+from astrbot_plugin_checkin_calendar.rendering import CalendarRenderer, _compact_calendar_png
 
 
 @pytest.fixture
@@ -119,3 +122,26 @@ def test_cleanup_only_old_owned_images(tmp_path):
     CalendarRenderer(tmp_path)._prepare('test', {})
     assert not old.exists()
     assert recent.exists() and other.exists()
+
+@pytest.mark.asyncio
+async def test_calendar_compacts_png_and_keeps_swatches(runtime):
+    renderer, page, *_ = runtime
+    img = Image.new("RGB", (720, 500), "white")
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((20, 20, 100, 100), fill="#f67d57")
+    original = BytesIO()
+    img.save(original, format="PNG", compress_level=0)
+    page.screenshot.return_value = original.getvalue()
+    page.evaluate.side_effect = [None, None, ["rgb(255, 255, 255)", "rgb(246, 125, 87)"]]
+    path = Path(await renderer.render("日历", {}, {"compact_png": True}))
+    assert path.stat().st_size < len(original.getvalue())
+    with Image.open(path) as result:
+        assert result.format == "PNG"
+        assert result.size == img.size
+        assert result.convert("RGB").getpixel((30, 30)) == (246, 125, 87)
+        assert result.convert("RGB").getpixel((0, 0)) == (255, 255, 255)
+
+
+def test_calendar_compression_keeps_original_on_invalid_input():
+    original = b"unreadable screenshot"
+    assert _compact_calendar_png(original, []) == original

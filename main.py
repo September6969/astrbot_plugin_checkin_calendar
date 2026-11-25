@@ -185,7 +185,7 @@ class CheckinCalendarPlugin(Star):
         fallback = text_summary(snapshot, name, self.timezone_name, message)
         try:
             data = payload(snapshot, name, now.date(), self.timezone_name, message)
-            options = {"type": "png", "quality": None, "full_page": True, "viewport": {"width": 720, "height": 1}, "animations": "disabled"}
+            options = {"compact_png": True}
             image = await asyncio.wait_for(self.calendar_renderer.render(self.template, data, options), timeout=30)
             if not isinstance(image, str) or not image.strip():
                 raise ValueError("渲染器未返回图片")

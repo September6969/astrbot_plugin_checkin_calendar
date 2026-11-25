@@ -3,11 +3,42 @@
 import asyncio
 import time
 import uuid
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image, ImageChops, ImageColor
 from jinja2 import Environment
 from playwright.async_api import async_playwright
 from astrbot.api import logger
+
+
+def _compact_calendar_png(original: bytes, css_colors: list[str]) -> bytes:
+    """压缩月历 PNG，调色板保留原本的日期色阶、文字色和底色。"""
+    try:
+        with Image.open(BytesIO(original)) as source:
+            if source.mode != 'RGB':
+                return original
+            fixed = list(dict.fromkeys(ImageColor.getrgb(color) for color in css_colors))
+            adaptive = 256 - len(fixed)
+            palette = source.quantize(colors=adaptive)
+            entries = palette.getpalette()[:adaptive * 3]
+            fixed_start = len(entries) // 3
+            entries.extend(component for color in fixed for component in color)
+            palette.putpalette(entries)
+            indexed = source.quantize(palette=palette, dither=Image.Dither.NONE)
+            # Pillow 的邻近查色按颜色桶近似。将原本就是关键色的像素显式映射到对应色号。
+            red, green, blue = source.split()
+            for index, (r, g, b) in enumerate(fixed, start=fixed_start):
+                matching_rg = ImageChops.multiply(red.point(lambda value: 255 * (value == r)),
+                                                 green.point(lambda value: 255 * (value == g)))
+                matching = ImageChops.multiply(matching_rg, blue.point(lambda value: 255 * (value == b)))
+                indexed.paste(index, mask=matching)
+            with BytesIO() as output:
+                indexed.save(output, format='PNG', optimize=True)
+                compressed = output.getvalue()
+    except (OSError, ValueError):
+        return original
+    return compressed if len(compressed) < len(original) else original
 
 
 class CalendarRenderer:
@@ -84,10 +115,25 @@ class CalendarRenderer:
                 await page.evaluate('''async () => {
                     await Promise.all([...document.images].map(img => img.decode()));
                 }''')
+                compact_png = options.get('compact_png', False)
+                colors = []
+                if compact_png:
+                    colors = await page.evaluate("""() =>
+                        [...document.querySelectorAll('body, .status, .legend .swatch')].flatMap(element => {
+                            const style = getComputedStyle(element);
+                            return [style.color, style.backgroundColor];
+                        })
+                    """)
                 stage = '截图'
-                await page.screenshot(path=str(path), type='png', full_page=True, animations='disabled')
+                png = await page.screenshot(
+                    path=None if compact_png else str(path), type='png', full_page=True, animations='disabled',
+                )
                 await context.close()
                 context = None
+                if compact_png:
+                    stage = '压缩月历图片'
+                    png = await asyncio.to_thread(_compact_calendar_png, png, colors)
+                    path.write_bytes(png)
                 logger.info('[打卡月历] 本地渲染成功，耗时 %.2f 秒', time.monotonic() - started)
                 return str(path)
             except BaseException as exc:
