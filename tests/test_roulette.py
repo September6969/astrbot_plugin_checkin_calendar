@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 from zoneinfo import ZoneInfo
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageSequence
 
 from astrbot.api.message_components import At, Image as MsgImage, Plain
 from astrbot.core.message.message_event_result import MessageEventResult
@@ -30,8 +30,9 @@ def test_roulette_renderer_produces_valid_animated_gif(tmp_path, risk, blasted):
         assert im.is_animated is True
         assert im.n_frames >= 20
         assert im.size == (240, 240)
+        assert sum(frame.info["duration"] for frame in ImageSequence.Iterator(im)) == 4480
         im.seek(im.n_frames - 1)
-        assert im.info["duration"] >= 2220
+        assert im.info["duration"] == 2220
 
 
 @pytest.mark.parametrize("risk,label", [(0, "0%"), (0.003, "<0.01%"), (12.54, "12.54%")])

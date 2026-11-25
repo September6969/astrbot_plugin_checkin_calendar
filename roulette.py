@@ -257,15 +257,15 @@ class RouletteRenderer:
             except OSError:
                 pass
 
-    def render(self, risk_percent: float, blasted: bool, *, size: int = 440) -> str:
+    def render(self, risk_percent: float, blasted: bool, *, size: int = 400) -> str:
         """同步生成正方形转盘 GIF，返回文件路径。"""
         self._cleanup_old()
         # 盘面面积依赖原始概率，缓存键保留浮点精度。
-        cache_key = sha256(f"2:{size}:{float(risk_percent).hex()}:{blasted}".encode()).hexdigest()[:24]
+        cache_key = sha256(f"3:{size}:{float(risk_percent).hex()}:{blasted}".encode()).hexdigest()[:24]
         out_path = self.output_dir / f"roulette-{cache_key}.gif"
         if out_path.is_file():
             return str(out_path)
-        cw = ch = size * 2
+        cw = ch = (size * 3 + 1) // 2
 
         backdrop = _build_backdrop(cw, ch)
 
@@ -286,7 +286,7 @@ class RouletteRenderer:
 
         spin_frames = 26
         hold_frames = 4
-        finale_frames = 12
+        finale_frames = 9
 
         frames: list[Image.Image] = []
         durations: list[int] = []
@@ -369,11 +369,19 @@ class RouletteRenderer:
             draw.rectangle((0, 0, cw - 1, ch - 1), outline=card_outline + (255,), width=4)
 
             downsampled = img.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
-            frames.append(downsampled.convert("P", palette=Image.Palette.ADAPTIVE, colors=256, dither=Image.Dither.NONE))
+            frames.append(downsampled)
             if idx == finale_end:
                 durations.append(FINAL_HOLD_MS)
             else:
-                durations.append(65 if is_finale else (60 if is_hold else 50))
+                durations.append(80 if is_finale else (60 if is_hold else 50))
+
+        # 共用调色板，让未变化的像素保留相同色号，GIF 可只写入变化区域。
+        sample_indices = (0, spin_frames, *(range(spin_frames + hold_frames, finale_end, 2)), finale_end)
+        samples = Image.new("RGB", (96 * len(sample_indices), 96))
+        for column, index in enumerate(sample_indices):
+            samples.paste(frames[index].resize((96, 96), Image.Resampling.LANCZOS), (96 * column, 0))
+        palette = samples.quantize(colors=256)
+        frames = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
 
         temp_path = out_path.with_suffix(f".{uuid.uuid4().hex}.tmp")
         try:
