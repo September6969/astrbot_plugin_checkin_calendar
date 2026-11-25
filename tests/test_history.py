@@ -196,3 +196,12 @@ async def test_persisted_history_remains_queryable_after_checkin_render_failure(
     history = await call_history(plugin)
     assert "有效判定 1" in history.chain[0].text
     assert "正常通过" in history.chain[0].text
+
+
+def test_admin_cooldown_reset_does_not_change_history(tmp_path):
+    store = CalendarStore(tmp_path / "test.db")
+    store.change(ACTOR, "first", "add", NOW)
+    original = store.history(ACTOR, None, False, 1)
+    assert store.change(ACTOR, "reset", "reset_all_cooldowns", NOW).status == "cooldowns_reset"
+    assert store.history(ACTOR, None, False, 1) == original
+    assert not store.risk(ACTOR, NOW).available_at
