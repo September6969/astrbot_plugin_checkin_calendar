@@ -30,6 +30,8 @@ def test_roulette_renderer_produces_valid_animated_gif(tmp_path, risk, blasted):
         assert im.is_animated is True
         assert im.n_frames >= 20
         assert im.size == (240, 240)
+        im.seek(im.n_frames - 1)
+        assert im.info["duration"] >= 2220
 
 
 @pytest.mark.parametrize("risk,label", [(0, "0%"), (0.003, "<0.01%"), (12.54, "12.54%")])
@@ -121,7 +123,7 @@ async def test_roulette_send_pause_recall_before_blast_result(plugin, tmp_path, 
     res = (await replies(plugin, _bot_event("blast-1", bot=bot)))[0]
     assert order == [
         ("send", 123456, 111222),
-        ("sleep", 2.5),
+        ("sleep", 4.5),
         ("delete", 555666, 111222),
     ]
     assert [type(x) for x in res.chain] == [At, Plain]

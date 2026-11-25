@@ -1,4 +1,4 @@
-"""覆盖判定事务、分页统计和私聊入口。"""
+"""覆盖判定事务、分页统计和群聊与私聊入口。"""
 
 import json
 import sqlite3
@@ -158,12 +158,12 @@ async def collect(plugin, message):
 
 
 @pytest.mark.asyncio
-async def test_group_and_targeting_are_rejected_before_any_read(plugin, monkeypatch):
+async def test_targeting_is_rejected_before_any_read(plugin, monkeypatch):
     history = Mock(side_effect=AssertionError("不得查询数据库"))
     monkeypatch.setattr(plugin.store, "history", history)
     for reply in (
-        await call_history(plugin, "历史 炸膛 2", private=False),
-        await call_history(plugin, "历史", components=[At(qq="bob")]),
+        await call_history(plugin, "历史 12345 Bob", private=False),
+        await call_history(plugin, "历史", components=[At(qq="bob")], private=False),
         await call_history(plugin, "历史 Bob"),
     ):
         assert [type(item) for item in reply.chain] == [Plain]
@@ -205,3 +205,36 @@ def test_admin_cooldown_reset_does_not_change_history(tmp_path):
     assert store.change(ACTOR, "reset", "reset_all_cooldowns", NOW).status == "cooldowns_reset"
     assert store.history(ACTOR, None, False, 1) == original
     assert not store.risk(ACTOR, NOW).available_at
+
+@pytest.mark.asyncio
+async def test_repeated_own_history_in_group_and_private_during_both_cooldowns(plugin, monkeypatch):
+    ordinary = plugin.store.change(ACTOR, "first", "add", NOW)
+    assert ordinary.status == "added"
+    clock = NOW + timedelta(minutes=1)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock
+
+    monkeypatch.setattr("astrbot_plugin_checkin_calendar.main.datetime", Clock)
+    draw = Mock(return_value=0)
+    monkeypatch.setattr("astrbot_plugin_checkin_calendar.store.secrets.randbelow", draw)
+    send = Mock(side_effect=AssertionError("历史查询不会发送转盘"))
+    monkeypatch.setattr(plugin, "_send_and_recall_roulette", send)
+    for group in (True, False, True):
+        assert (await call_history(plugin, private=not group)).chain
+        assert plugin.html_render.call_args.args[1]["metrics"][0] == ("有效判定", "1")
+    assert plugin.store.risk(ACTOR, clock).available_at
+    draw.assert_not_called()
+    clock = NOW + timedelta(hours=2)
+    assert plugin.store.change(ACTOR, "blast", "add", clock).status == "blasted"
+    clock += timedelta(minutes=1)
+    assert plugin.store.risk(ACTOR, clock).blast_cooling
+    for group in (True, False, True):
+        assert (await call_history(plugin, "历史 炸膛", private=not group)).chain
+        data = plugin.html_render.call_args.args[1]
+        assert data["metrics"][0] == ("有效判定", "2")
+        assert [row["result"] for row in data["rows"]] == ["炸膛"]
+    draw.assert_called_once()
+    send.assert_not_called()

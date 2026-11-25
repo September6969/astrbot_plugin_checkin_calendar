@@ -19,7 +19,7 @@ from astrbot.api.star import Context, Star, StarTools
 from .presentation import clean_name, font_faces, parse_month, payload, text_summary, format_probability
 from .history import history_payload, history_text, parse_history_args
 from .rendering import CalendarRenderer
-from .roulette import RouletteRenderer
+from .roulette import ROULETTE_MIN_VIEW_SECONDS, RouletteRenderer
 from .store import CalendarStore, DEFAULT_COOLDOWN_MINUTES, DEFAULT_BLAST_COOLDOWN_MINUTES, DEFAULT_BLAST_MAX_PERCENT
 from .ranking import ranking_payload, ranking_text, resolve_names
 
@@ -28,7 +28,7 @@ ROULETTE_SEND_TIMEOUT = 5
 ROULETTE_RECALL_TIMEOUT = 2
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 历史：私聊查看个人判定（可组合 YYYY-MM、炸膛、页码）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
+HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 历史：随时查看本人判定（可组合 YYYY-MM、炸膛、页码；群内查询会发到当前群）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
 
 
 class CheckinCalendarPlugin(Star):
@@ -50,9 +50,9 @@ class CheckinCalendarPlugin(Star):
         self.roulette_renderer = RouletteRenderer(self.store.path.parent / "rendered")
         self.roulette_enabled = bool(config.get("roulette_enabled", True))
         try:
-            delay = float(config.get("roulette_delay_seconds", 2.5))
+            delay = float(config.get("roulette_delay_seconds", ROULETTE_MIN_VIEW_SECONDS))
         except (TypeError, ValueError):
-            delay = 2.5
+            delay = ROULETTE_MIN_VIEW_SECONDS
         self.roulette_delay_seconds = max(0.0, min(15.0, delay))
         self._roulette_task = None
 
@@ -198,8 +198,6 @@ class CheckinCalendarPlugin(Star):
         yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
 
     async def _history(self, event, args):
-        if not event.is_private_chat():
-            return event.make_result().message("详细判定历史仅限本人在私聊中查询。").use_t2i(False)
         if any(isinstance(component, (At, AtAll)) for component in event.get_messages()):
             return event.make_result().message("历史仅支持查询本人，请移除艾特。").use_t2i(False)
         identity = [str(getter() or "") for getter in (event.get_platform_id, event.get_self_id, event.get_sender_id)]
@@ -306,9 +304,9 @@ class CheckinCalendarPlugin(Star):
             response = await asyncio.wait_for(send, timeout=ROULETTE_SEND_TIMEOUT)
             message_id = response.get("message_id") if isinstance(response, dict) else None
             if message_id is not None:
-                delay = getattr(self, "roulette_delay_seconds", 2.5)
+                delay = getattr(self, "roulette_delay_seconds", ROULETTE_MIN_VIEW_SECONDS)
                 if delay:
-                    await asyncio.sleep(delay)
+                    await asyncio.sleep(max(delay, ROULETTE_MIN_VIEW_SECONDS))
                 await asyncio.wait_for(bot.delete_msg(message_id=message_id, **routing), timeout=ROULETTE_RECALL_TIMEOUT)
         except Exception as exc:
             logger.warning("[打卡月历] 转盘动画展示失败：%s", type(exc).__name__)

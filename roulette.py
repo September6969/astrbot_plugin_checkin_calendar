@@ -54,6 +54,8 @@ def _has_cjk_font() -> bool:
 
 
 POINTER_ANGLE = 270.0
+ROULETTE_MIN_VIEW_SECONDS = 4.5
+FINAL_HOLD_MS = 2220
 
 
 def _wheel_geometry(risk_percent: float, blasted: bool) -> tuple[float, float]:
@@ -259,7 +261,7 @@ class RouletteRenderer:
         """同步生成正方形转盘 GIF，返回文件路径。"""
         self._cleanup_old()
         # 盘面面积依赖原始概率，缓存键保留浮点精度。
-        cache_key = sha256(f"1:{size}:{float(risk_percent).hex()}:{blasted}".encode()).hexdigest()[:24]
+        cache_key = sha256(f"2:{size}:{float(risk_percent).hex()}:{blasted}".encode()).hexdigest()[:24]
         out_path = self.output_dir / f"roulette-{cache_key}.gif"
         if out_path.is_file():
             return str(out_path)
@@ -369,7 +371,7 @@ class RouletteRenderer:
             downsampled = img.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
             frames.append(downsampled.convert("P", palette=Image.Palette.ADAPTIVE, colors=256, dither=Image.Dither.NONE))
             if idx == finale_end:
-                durations.append(220)
+                durations.append(FINAL_HOLD_MS)
             else:
                 durations.append(65 if is_finale else (60 if is_hold else 50))
 

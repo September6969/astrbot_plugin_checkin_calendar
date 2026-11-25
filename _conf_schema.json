@@ -38,7 +38,7 @@
   "roulette_delay_seconds": {
     "description": "转盘动画展示后等待撤回的秒数",
     "type": "float",
-    "default": 2.5,
-    "hint": "范围 0～15 秒，建议 2～3 秒以完整播放转盘动画。"
+    "default": 4.5,
+    "hint": "设为 0 时立即撤回；正数至少等待 4.5 秒，以便完整播放转盘及最终定格。"
   }
 }
