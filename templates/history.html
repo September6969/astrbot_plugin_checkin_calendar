@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }}</title>
+<style>
+{% for font in fonts %}
+@font-face {font-family: Calendar; src: url('{{ font.data }}') format('woff2'); unicode-range: {{ font.unicode_range }}}
+{% endfor %}
+* {box-sizing:border-box}
+html {background:#e7eaed}
+body {margin:0;color:#1a2632;font:22px Calendar,"Microsoft YaHei",sans-serif;line-height:1.45}
+main {max-width:720px;margin:auto;padding:28px 32px 32px;background:#f2f4f5}
+header {padding:22px 24px 20px;color:#f6f9fb;background:#202d3a;border-left:6px solid #62a9c5}
+.en {font-size:16px;letter-spacing:.17em;color:#a1c7d5;font-weight:bold}
+h1 {font-size:38px;line-height:1.22;margin:7px 0 12px}
+header p {margin:5px 0 0;overflow-wrap:anywhere}
+.filter {font-size:19px;color:#d6e5eb}
+.metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:18px 0 0;background:white;border:1px solid #d4dde1}
+.metric {margin:0;padding:12px 9px;text-align:center;border-right:1px solid #e1e7e9;border-bottom:1px solid #e1e7e9;min-width:0}
+.metric:nth-child(4n) {border-right:0}
+.metric:nth-child(n+5) {border-bottom:0}
+dt {font-size:17px;color:#435868}
+dd {margin:2px 0 0;font-size:27px;font-variant-numeric:tabular-nums;font-weight:bold;overflow-wrap:anywhere}
+.coverage {font-size:18px;color:#4a5e69;margin:12px 0 20px}
+ol {padding:0;margin:0;list-style:none;display:grid;gap:7px}
+li {display:grid;grid-template-columns:minmax(0,1fr) 135px 140px;gap:8px;align-items:center;background:white;min-height:74px;padding:9px 13px;border-left:4px solid #42788a}
+li.blast {border-color:#af4551}
+li.undone {border-color:#858791}
+.date,.clock {display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.clock,.label {font-size:17px;color:#465c69}
+.risk span {display:block}
+.status {justify-self:end;padding:4px 8px;background:#e1eef1;color:#225564;font-size:18px;text-align:center}
+.blast .status {background:#f8e6e7;color:#8e2533}
+.undone .status {background:#ecebf0;color:#514860}
+.status span {display:block;font-size:16px}
+.empty {background:#fff;color:#435868;padding:32px 20px;text-align:center}
+footer {margin-top:20px;padding-top:12px;border-top:1px solid #c7d1d7;color:#425864;font-size:17px}
+footer p {margin:6px 0;overflow-wrap:anywhere}
+footer strong {font-size:20px;color:#233744}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div class="en" lang="en">HISTORY LOG</div>
+<h1>{{ title }}</h1>
+<p>{{ name }}</p>
+<p class="filter">{{ range }} / {{ filter }}</p>
+</header>
+<section class="metrics" aria-label="范围统计">
+{% for label,value in metrics %}<dl class="metric"><dt>{{ label }}</dt><dd>{{ value }}</dd></dl>{% endfor %}
+</section>
+<p class="coverage">{{ coverage }}</p>
+{% if rows %}
+<ol aria-label="判定列表">
+{% for row in rows %}
+<li class="{{ row.state }}">
+<div><strong class="date">{{ row.day }}</strong><span class="clock">{{ row.time }}</span></div>
+<div class="risk"><span class="label">炸膛概率</span><strong>{{ row.risk }}</strong></div>
+<div class="status">{{ row.result }}{% if row.undone %}<span>已撤销</span>{% endif %}</div>
+</li>
+{% endfor %}
+</ol>
+{% else %}<p class="empty">{{ empty }}</p>{% endif %}
+<footer>
+<strong>{{ pagination }}</strong>
+{% for note in notes %}<p>{{ note }}</p>{% endfor %}
+</footer>
+</main>
+</body>
+</html>

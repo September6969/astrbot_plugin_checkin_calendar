@@ -21,6 +21,8 @@ def verify(path: Path):
         assert "astrbot_plugin_checkin_calendar/assets/arcana.webp" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/ranking.py" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/templates/ranking.html" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/history.py" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/templates/history.html" in archive.namelist()
         index = json.loads(archive.read("astrbot_plugin_checkin_calendar/assets/fonts/index.json"))
         for face in [index['base'], *index['blocks'].values()]:
             assert f"astrbot_plugin_checkin_calendar/assets/fonts/{face['file']}" in archive.namelist()

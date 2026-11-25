@@ -12,15 +12,17 @@ from zoneinfo import ZoneInfo
 
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.message_components import At, AtAll
 from astrbot.api.star import Context, Star, StarTools
 
-from .presentation import clean_name, parse_month, payload, text_summary, format_probability
+from .presentation import clean_name, font_faces, parse_month, payload, text_summary, format_probability
+from .history import history_payload, history_text, parse_history_args
 from .rendering import CalendarRenderer
 from .store import CalendarStore, DEFAULT_COOLDOWN_MINUTES, DEFAULT_BLAST_COOLDOWN_MINUTES, DEFAULT_BLAST_MAX_PERCENT
 from .ranking import ranking_payload, ranking_text, resolve_names
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
+HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 历史：私聊查看个人判定（可组合 YYYY-MM、炸膛、页码）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
 
 
 class CheckinCalendarPlugin(Star):
@@ -58,6 +60,9 @@ class CheckinCalendarPlugin(Star):
         if not re.fullmatch(TRIGGER_PATTERN, text):
             return
         parts = text.split()
+        if len(parts) > 1 and parts[1] == "历史":
+            yield await self._history(event, parts[2:])
+            return
         if len(parts) > 3:
             yield event.plain_result(self._help())
             return
@@ -169,6 +174,39 @@ class CheckinCalendarPlugin(Star):
         # 原生艾特放在图片之前，使用平台用户 ID，避免昵称同名造成误艾特。
         reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
         yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
+
+    async def _history(self, event, args):
+        if not event.is_private_chat():
+            return event.make_result().message("详细判定历史仅限本人在私聊中查询。").use_t2i(False)
+        if any(isinstance(component, (At, AtAll)) for component in event.get_messages()):
+            return event.make_result().message("历史仅支持查询本人，请移除艾特。").use_t2i(False)
+        identity = [str(getter() or "") for getter in (event.get_platform_id, event.get_self_id, event.get_sender_id)]
+        if not all(identity):
+            return event.make_result().message("未取得完整用户身份，暂时无法读取历史。").use_t2i(False)
+        try:
+            month, blast_only, page = parse_history_args(args, datetime.now(self.timezone).date())
+        except ValueError as exc:
+            return event.make_result().message(str(exc)).use_t2i(False)
+        try:
+            actor = json.dumps(identity, ensure_ascii=False)
+            snapshot = await asyncio.to_thread(self.store.history, actor, month, blast_only, page)
+        except (sqlite3.Error, OSError):
+            logger.warning("[打卡月历] 历史读取失败")
+            return event.make_result().message("历史暂时读取失败，请稍后重试。").use_t2i(False)
+        if page > max(1, snapshot.pages):
+            message = f"页码超出范围，共 {snapshot.pages} 页。" if snapshot.pages else "所选范围没有符合条件的记录。"
+            return event.make_result().message(message).use_t2i(False)
+        data = history_payload(snapshot, event.get_sender_name() or "我", self.timezone)
+        try:
+            template = (Path(__file__).parent / "templates/history.html").read_text(encoding="utf-8")
+            data["fonts"] = font_faces(history_text(data) + "判定列表范围统计")
+            image = await asyncio.wait_for(self.calendar_renderer.render(template, data, {}), timeout=30)
+            if not isinstance(image, str) or not image.strip():
+                raise ValueError("渲染器未返回图片")
+        except Exception as exc:
+            logger.warning("[打卡月历] 历史图片生成失败：%s", type(exc).__name__)
+            return event.make_result().message(history_text(data)).use_t2i(False)
+        return event.make_result().file_image(image).use_t2i(False)
 
     async def _ranking(self, event, platform, bot, month):
         try:

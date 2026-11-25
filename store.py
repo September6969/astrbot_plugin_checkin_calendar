@@ -44,6 +44,7 @@ DEFAULT_COOLDOWN_MINUTES = 120
 DEFAULT_BLAST_COOLDOWN_MINUTES = 720
 DEFAULT_BLAST_MAX_PERCENT = 80
 MAX_COOLDOWN_MINUTES = 10_080
+HISTORY_PAGE_SIZE = 10
 
 
 def bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
@@ -80,6 +81,42 @@ class Change:
     risk_percent: float = 0
 
 
+@dataclass(frozen=True)
+class DrawRecord:
+    id: int
+    day: str
+    created_at: str | None
+    risk_percent: float | None
+    result: str
+    undone: bool
+    cooldown_until: str | None
+    source: str
+
+
+@dataclass(frozen=True)
+class HistoryStats:
+    total: int
+    blasted: int
+    undone: int
+    known_risks: int
+    average: float | None
+    highest: float | None
+    lowest_blast: float | None
+    migrated: int
+    unknown_times: int
+
+
+@dataclass(frozen=True)
+class HistorySnapshot:
+    month: str | None
+    blast_only: bool
+    page: int
+    pages: int
+    matching: int
+    stats: HistoryStats
+    records: list[DrawRecord]
+
+
 class CalendarStore:
     def __init__(
         self, path: Path, *,
@@ -97,6 +134,7 @@ class CalendarStore:
         con = self._connect()
         try:
             con.executescript("""
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS entries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     actor TEXT NOT NULL,
@@ -121,14 +159,75 @@ class CalendarStore:
                     result TEXT NOT NULL,
                     PRIMARY KEY(actor, token)
                 );
+                CREATE TABLE IF NOT EXISTS draw_history (
+                    id INTEGER PRIMARY KEY,
+                    actor TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    created_at TEXT,
+                    risk_percent REAL CHECK(risk_percent BETWEEN 0 AND 100),
+                    result TEXT NOT NULL CHECK(result IN ('added','blasted')),
+                    entry_id INTEGER UNIQUE REFERENCES entries(id),
+                    cooldown_until TEXT,
+                    source TEXT NOT NULL CHECK(source IN ('native','legacy_entry','legacy_receipt')),
+                    CHECK((result='added') = (entry_id IS NOT NULL))
+                );
+                CREATE INDEX IF NOT EXISTS draw_history_order
+                    ON draw_history(actor, COALESCE(created_at, day) DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS draw_history_result_order
+                    ON draw_history(actor, result, COALESCE(created_at, day) DESC, id DESC);
+                CREATE INDEX IF NOT EXISTS draw_history_month
+                    ON draw_history(actor, day, result);
+                CREATE TABLE IF NOT EXISTS history_migrations (version INTEGER PRIMARY KEY);
             """)
+            self._migrate_history(con)
             con.commit()
+        except BaseException:
+            con.rollback()
+            raise
         finally:
             con.close()
+
+    @classmethod
+    def _legacy_timestamp(cls, value):
+        try:
+            return cls._timestamp(value).isoformat(timespec="microseconds")
+        except sqlite3.DataError:
+            return None
+
+    @classmethod
+    def _migrate_history(cls, con):
+        if con.execute("SELECT 1 FROM history_migrations WHERE version=1").fetchone():
+            return
+        # 成功回执没有可靠的关联键，只迁移真实打卡记录。
+        entries = con.execute("SELECT id, actor, day, created_at FROM entries ORDER BY id")
+        con.executemany(
+            """INSERT INTO draw_history(actor, day, created_at, result, entry_id, source)
+               VALUES (?, ?, ?, 'added', ?, 'legacy_entry')""",
+            ((actor, day, cls._legacy_timestamp(when), entry) for entry, actor, day, when in entries),
+        )
+        # 炸膛回执本身就是一次判定；旧冷却表只记录截止时间。
+        for actor, raw in con.execute("SELECT actor, result FROM receipts ORDER BY actor, token"):
+            try:
+                receipt = json.loads(raw)
+                if not isinstance(receipt, dict) or receipt.get("status") != "blasted":
+                    continue
+                day = date.fromisoformat(receipt["day"]).isoformat()
+            except (ValueError, TypeError, KeyError):
+                continue
+            risk = receipt.get("risk_percent")
+            if type(risk) not in (int, float) or not 0 <= risk <= 100:
+                risk = None
+            con.execute(
+                """INSERT INTO draw_history(actor, day, risk_percent, result, cooldown_until, source)
+                   VALUES (?, ?, ?, 'blasted', ?, 'legacy_receipt')""",
+                (actor, day, risk, cls._legacy_timestamp(receipt.get("available_at"))),
+            )
+        con.execute("INSERT INTO history_migrations(version) VALUES (1)")
 
     def _connect(self):
         con = sqlite3.connect(self.path, timeout=15)
         con.execute("PRAGMA busy_timeout=15000")
+        con.execute("PRAGMA foreign_keys=ON")
         return con
 
     def change(self, actor: str, token: str | None, action: str, now: datetime) -> Change:
@@ -146,6 +245,7 @@ class CalendarStore:
                     con.commit()
                     return Change(**json.loads(previous[0]), replay=True)
             day = now.date().isoformat()
+            entry_id = None
             if action == "add":
                 state = self._risk(con, actor, now)
                 if state.available_at:
@@ -156,7 +256,8 @@ class CalendarStore:
                     con.execute("INSERT INTO blast_cooldowns(actor,available_at) VALUES (?,?) ON CONFLICT(actor) DO UPDATE SET available_at=excluded.available_at", (actor, until))
                     result = Change("blasted", day, available_at=until, risk_percent=state.risk_percent)
                 else:
-                    con.execute("INSERT INTO entries(actor,day,created_at) VALUES (?,?,?)", (actor, day, now.isoformat()))
+                    entry_id = con.execute("INSERT INTO entries(actor,day,created_at) VALUES (?,?,?)",
+                                           (actor, day, now.isoformat())).lastrowid
                     result = Change("added", day, risk_percent=state.risk_percent)
             else:
                 # 只撤销今天最后一次，避免跨日误删历史记录。
@@ -164,6 +265,13 @@ class CalendarStore:
                 if row:
                     con.execute("UPDATE entries SET undone=1 WHERE id=?", (row[0],))
                 result = Change("undone" if row else "empty", day)
+            if result.status in {"added", "blasted"}:
+                con.execute(
+                    """INSERT INTO draw_history(actor, day, created_at, risk_percent, result, entry_id, cooldown_until, source)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 'native')""",
+                    (actor, day, now.astimezone(timezone.utc).isoformat(timespec="microseconds"),
+                     result.risk_percent, result.status, entry_id, result.available_at),
+                )
             if token:
                 con.execute("INSERT INTO receipts(actor,token,result) VALUES (?,?,?)", (actor, token, json.dumps({"status": result.status, "day": result.day, "available_at": result.available_at, "risk_percent": result.risk_percent})))
             con.commit()
@@ -238,6 +346,49 @@ class CalendarStore:
             con.close()
         counts = {int(day[-2:]): count for day, count in rows}
         return MonthSnapshot(month, counts, sum(counts.values()), len(counts))
+
+    def history(self, actor: str, month: str | None, blast_only: bool, page: int) -> HistorySnapshot:
+        """同一读事务中查询统计和单页记录，避免并发产生口径差异。"""
+        if not actor or type(page) is not int or page < 1:
+            raise ValueError("历史查询缺少身份或有效页码")
+        where = "h.actor=?"
+        params = [actor]
+        if month is not None:
+            start = date.fromisoformat(month + "-01")
+            if start.isoformat()[:7] != month:
+                raise ValueError("月份格式应为 YYYY-MM")
+            end = date(start.year + (start.month == 12), start.month % 12 + 1, 1)
+            where += " AND h.day>=? AND h.day<?"
+            params.extend((start.isoformat(), end.isoformat()))
+        join = "FROM draw_history h LEFT JOIN entries e ON e.id=h.entry_id AND e.actor=h.actor"
+        con = self._connect()
+        try:
+            con.execute("BEGIN")
+            stats = HistoryStats(*con.execute(
+                f"""SELECT COUNT(*), COUNT(CASE WHEN h.result='blasted' THEN 1 END),
+                           COUNT(CASE WHEN e.undone=1 THEN 1 END), COUNT(h.risk_percent),
+                           AVG(h.risk_percent), MAX(h.risk_percent),
+                           MIN(CASE WHEN h.result='blasted' THEN h.risk_percent END),
+                           COUNT(CASE WHEN h.source!='native' THEN 1 END),
+                           COUNT(*)-COUNT(h.created_at)
+                    {join} WHERE {where}""", params,
+            ).fetchone())
+            matching = stats.blasted if blast_only else stats.total
+            pages = (matching + HISTORY_PAGE_SIZE - 1) // HISTORY_PAGE_SIZE
+            records = []
+            if page <= pages:
+                if blast_only:
+                    where += " AND h.result='blasted'"
+                records = [DrawRecord(*row) for row in con.execute(
+                    f"""SELECT h.id, h.day, h.created_at, h.risk_percent, h.result,
+                               COALESCE(e.undone, 0), h.cooldown_until, h.source
+                        {join} WHERE {where}
+                        ORDER BY COALESCE(h.created_at, h.day) DESC, h.id DESC LIMIT ? OFFSET ?""",
+                    (*params, HISTORY_PAGE_SIZE, (page - 1) * HISTORY_PAGE_SIZE),
+                )]
+            return HistorySnapshot(month, blast_only, page, pages, matching, stats, records)
+        finally:
+            con.close()
 
     def save_name(self, actor: str, name: str):
         if not name.strip():
