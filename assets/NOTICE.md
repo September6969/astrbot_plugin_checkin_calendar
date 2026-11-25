@@ -9,3 +9,7 @@
 `arcana.webp` 为《胜利女神：妮姬》阿尔卡娜（Arcana，资源 ID 581 / c581）的默认立绘，由此前的 PNG 进行无损编码，尺寸仍为1320×3724，解码后的RGBA像素完全一致。原PNG SHA-256 为 `10ef6067bf2653de47d1fce6c21990a3dc929d65afd9ff9ada6238f818ad992c`，WebP SHA-256 为 `3bad8cb27ce98a19d41276e4ac09b267304fadd28013dffa36e01b89247ef15c`。透明度与左侧渐隐仍由 HTML/CSS 控制。
 
 角色及立绘权益归其原权利人所有，不适用插件代码的 MIT 许可证。
+
+`arcana-roulette.png` 是用户提供的阿尔卡娜透明贴图。
+
+`roulette-sans.ttf` 是 [Noto Sans SC](https://github.com/google/fonts/tree/main/ofl/notosanssc) 的轮盘文案字形子集，采用 SIL Open Font License 1.1。

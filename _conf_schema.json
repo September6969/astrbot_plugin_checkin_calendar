@@ -28,5 +28,17 @@
     "type": "string",
     "default": "",
     "hint": "仅接受该 QQ 账号的 OneBot 11 消息。留空禁用。"
+  },
+  "roulette_enabled": {
+    "description": "是否启用炸膛转盘动画",
+    "type": "bool",
+    "default": true,
+    "hint": "有效打卡才会发送 GIF，包括零概率。发送后短暂展示，再返回月历或冷却提示。"
+  },
+  "roulette_delay_seconds": {
+    "description": "转盘动画展示后等待撤回的秒数",
+    "type": "float",
+    "default": 2.5,
+    "hint": "范围 0～15 秒，建议 2～3 秒以完整播放转盘动画。"
   }
 }

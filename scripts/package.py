@@ -7,14 +7,14 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP_LEVEL = {"__init__.py", "main.py", "store.py", "presentation.py", "rendering.py", "ranking.py", "history.py", "metadata.yaml", "_conf_schema.json", "requirements.txt", "requirements-dev.txt", "pyproject.toml", "README.md", "LICENSE", "VALIDATION.md", ".gitignore"}
+TOP_LEVEL = {"__init__.py", "main.py", "store.py", "presentation.py", "rendering.py", "ranking.py", "history.py", "roulette.py", "metadata.yaml", "_conf_schema.json", "requirements.txt", "requirements-dev.txt", "pyproject.toml", "README.md", "LICENSE", "VALIDATION.md", ".gitignore"}
 
 
 def build(output: Path):
     output.parent.mkdir(parents=True, exist_ok=True)
     files = [p for p in ROOT.rglob("*") if p.is_file() and (
         (p.parent == ROOT and p.name in TOP_LEVEL)
-        or (p.relative_to(ROOT).parts[0] in {"assets", "templates", "scripts", "tests"} and "__pycache__" not in p.parts and p.suffix in {".py", ".html", ".woff2", ".png", ".webp", ".json", ".md", ".txt"})
+        or (p.relative_to(ROOT).parts[0] in {"assets", "templates", "scripts", "tests"} and "__pycache__" not in p.parts and p.suffix in {".py", ".html", ".woff2", ".ttf", ".png", ".webp", ".json", ".md", ".txt"})
     )]
     manifest = {}
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:

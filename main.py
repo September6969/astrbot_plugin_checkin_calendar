@@ -1,6 +1,7 @@
 """AstrBot 打卡月历入口。"""
 
 import asyncio
+import base64
 import json
 import math
 import re
@@ -18,8 +19,13 @@ from astrbot.api.star import Context, Star, StarTools
 from .presentation import clean_name, font_faces, parse_month, payload, text_summary, format_probability
 from .history import history_payload, history_text, parse_history_args
 from .rendering import CalendarRenderer
+from .roulette import RouletteRenderer
 from .store import CalendarStore, DEFAULT_COOLDOWN_MINUTES, DEFAULT_BLAST_COOLDOWN_MINUTES, DEFAULT_BLAST_MAX_PERCENT
 from .ranking import ranking_payload, ranking_text, resolve_names
+
+ROULETTE_RENDER_TIMEOUT = 8
+ROULETTE_SEND_TIMEOUT = 5
+ROULETTE_RECALL_TIMEOUT = 2
 
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
 HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 历史：私聊查看个人判定（可组合 YYYY-MM、炸膛、页码）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
@@ -41,6 +47,14 @@ class CheckinCalendarPlugin(Star):
         )
         self.template = (Path(__file__).parent / "templates/calendar.html").read_text(encoding="utf-8")
         self.calendar_renderer = CalendarRenderer(self.store.path.parent / "rendered")
+        self.roulette_renderer = RouletteRenderer(self.store.path.parent / "rendered")
+        self.roulette_enabled = bool(config.get("roulette_enabled", True))
+        try:
+            delay = float(config.get("roulette_delay_seconds", 2.5))
+        except (TypeError, ValueError):
+            delay = 2.5
+        self.roulette_delay_seconds = max(0.0, min(15.0, delay))
+        self._roulette_task = None
 
     def _help(self) -> str:
         ordinary = self.store.cooldown_minutes
@@ -117,6 +131,8 @@ class CheckinCalendarPlugin(Star):
                 logger.exception("[打卡月历] 保存记录异常")
                 yield event.plain_result("保存结果暂时无法确认，请先用 🦌 月历 核对次数，再决定是否重新记录。")
                 return
+            if action == "" and not result.replay and result.status in {"blasted", "added"}:
+                await self._send_and_recall_roulette(event, result)
             if result.status in {"blasted", "blast_cooldown"}:
                 until = datetime.fromisoformat(result.available_at)
                 remaining = max(0, math.ceil((until - now).total_seconds()))
@@ -251,3 +267,48 @@ class CheckinCalendarPlugin(Star):
             yield event.make_result().message(ranking_text(data)).use_t2i(False)
             return
         yield event.make_result().file_image(image).use_t2i(False)
+
+
+    async def _send_and_recall_roulette(self, event: AstrMessageEvent, result) -> None:
+        if not getattr(self, "roulette_enabled", True):
+            return
+        if getattr(event, "get_platform_name", lambda: "")() != "aiocqhttp":
+            return
+        renderer = getattr(self, "roulette_renderer", None)
+        bot = getattr(event, "bot", None)
+        if renderer is None or bot is None:
+            return
+
+        group_id = event.get_group_id()
+        target = str(group_id or event.get_sender_id())
+        if not target.isdecimal():
+            return
+        # 超时后 CPU 任务可以收尾。期间跳过新演出，避免堆积渲染请求。
+        previous_task = getattr(self, "_roulette_task", None)
+        if previous_task is not None and not previous_task.done():
+            return
+        task = asyncio.create_task(asyncio.to_thread(renderer.render, result.risk_percent, result.status == "blasted"))
+        task.add_done_callback(lambda completed: None if completed.cancelled() else completed.exception())
+        self._roulette_task = task
+
+        try:
+            gif_path = await asyncio.wait_for(asyncio.shield(task), timeout=ROULETTE_RENDER_TIMEOUT)
+            payload = await asyncio.to_thread(Path(gif_path).read_bytes)
+            # NapCat 与 AstrBot 在不同容器，之前的本地文件 URI 不可跨容器读取。
+            message = [{"type": "image", "data": {"file": "base64://" + base64.b64encode(payload).decode("ascii")}}]
+            raw_event = getattr(event.message_obj, "raw_message", None)
+            self_id = raw_event.get("self_id") if hasattr(raw_event, "get") else None
+            routing = {"self_id": self_id} if self_id else {}
+            send = (
+                bot.send_group_msg(group_id=int(target), message=message, **routing) if group_id
+                else bot.send_private_msg(user_id=int(target), message=message, **routing)
+            )
+            response = await asyncio.wait_for(send, timeout=ROULETTE_SEND_TIMEOUT)
+            message_id = response.get("message_id") if isinstance(response, dict) else None
+            if message_id is not None:
+                delay = getattr(self, "roulette_delay_seconds", 2.5)
+                if delay:
+                    await asyncio.sleep(delay)
+                await asyncio.wait_for(bot.delete_msg(message_id=message_id, **routing), timeout=ROULETTE_RECALL_TIMEOUT)
+        except Exception as exc:
+            logger.warning("[打卡月历] 转盘动画展示失败：%s", type(exc).__name__)

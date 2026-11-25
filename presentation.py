@@ -86,10 +86,11 @@ def text_summary(snapshot: MonthSnapshot, name: str, timezone: str, message: str
     return "\n".join(part for part in [message, f"{clean_name(name)}本月的🦌馆足迹 · {snapshot.month}", f"累计 {snapshot.total} 次，打卡 {snapshot.days} 天", details, f"日期时区：{timezone}", "查看：🦌 月历　撤销今天最近一次：🦌 撤销"] if part)
 
 
-def format_probability(percent: float) -> str:
+def format_probability(percent: float, *, decimal_places: int = 1) -> str:
     """显示精度不参与抽签，微小非零概率不能标成零。"""
     if percent == 0:
         return "0%"
-    if percent < 0.1:
-        return "<0.1%"
-    return f"{percent:.1f}%"
+    minimum = 10 ** -decimal_places
+    if percent < minimum:
+        return f"<{minimum:.{decimal_places}f}%"
+    return f"{percent:.{decimal_places}f}%"
