@@ -132,7 +132,7 @@ class CheckinCalendarPlugin(Star):
                 yield event.plain_result("保存结果暂时无法确认，请先用 🦌 月历 核对次数，再决定是否重新记录。")
                 return
             if action == "" and not result.replay and result.status in {"blasted", "added"}:
-                await self._send_and_recall_roulette(event, result)
+                await self._send_and_recall_roulette(event, result, token)
             if result.status in {"blasted", "blast_cooldown"}:
                 until = datetime.fromisoformat(result.available_at)
                 remaining = max(0, math.ceil((until - now).total_seconds()))
@@ -267,7 +267,7 @@ class CheckinCalendarPlugin(Star):
         yield event.make_result().file_image(image).use_t2i(False)
 
 
-    async def _send_and_recall_roulette(self, event: AstrMessageEvent, result) -> None:
+    async def _send_and_recall_roulette(self, event: AstrMessageEvent, result, animation_key: str) -> None:
         if not getattr(self, "roulette_enabled", True):
             return
         if getattr(event, "get_platform_name", lambda: "")() != "aiocqhttp":
@@ -285,7 +285,9 @@ class CheckinCalendarPlugin(Star):
         previous_task = getattr(self, "_roulette_task", None)
         if previous_task is not None and not previous_task.done():
             return
-        task = asyncio.create_task(asyncio.to_thread(renderer.render, result.risk_percent, result.status == "blasted"))
+        task = asyncio.create_task(asyncio.to_thread(
+            renderer.render, result.risk_percent, result.status == "blasted", animation_key=animation_key,
+        ))
         task.add_done_callback(lambda completed: None if completed.cancelled() else completed.exception())
         self._roulette_task = task
 

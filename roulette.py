@@ -56,14 +56,14 @@ def _has_cjk_font() -> bool:
 POINTER_ANGLE = 270.0
 ROULETTE_MIN_VIEW_SECONDS = 4.5
 FINAL_HOLD_MS = 2220
+LANDING_FRACTIONS = (0.50, 0.26, 0.38, 0.62, 0.74)
 
 
-def _wheel_geometry(risk_percent: float, blasted: bool) -> tuple[float, float]:
+def _wheel_geometry(risk_percent: float, blasted: bool, landing_fraction: float = 0.5) -> tuple[float, float]:
     """返回炸膛扇区的圆心角及符合已确定结果的最终转角。"""
     blast_arc = risk_percent * 360.0 / 100.0
-    target = blast_arc / 2
-    if not blasted:
-        target += 180.0
+    start, width = (0.0, blast_arc) if blasted else (blast_arc, 360.0 - blast_arc)
+    target = start + width * landing_fraction
     return blast_arc, 3 * 360.0 + (POINTER_ANGLE - target) % 360.0
 
 
@@ -257,11 +257,14 @@ class RouletteRenderer:
             except OSError:
                 pass
 
-    def render(self, risk_percent: float, blasted: bool, *, size: int = 400) -> str:
+    def render(
+        self, risk_percent: float, blasted: bool, *, size: int = 400, animation_key: str = "",
+    ) -> str:
         """同步生成正方形转盘 GIF，返回文件路径。"""
         self._cleanup_old()
-        # 盘面面积依赖原始概率，缓存键保留浮点精度。
-        cache_key = sha256(f"3:{size}:{float(risk_percent).hex()}:{blasted}".encode()).hexdigest()[:24]
+        # 消息标识只选择扇区内的演出落点，缓存复用相同概率和落点的 GIF。
+        variant = sha256(animation_key.encode()).digest()[0] % len(LANDING_FRACTIONS) if animation_key else 0
+        cache_key = sha256(f"4:{size}:{float(risk_percent).hex()}:{blasted}:{variant}".encode()).hexdigest()[:24]
         out_path = self.output_dir / f"roulette-{cache_key}.gif"
         if out_path.is_file():
             return str(out_path)
@@ -276,7 +279,7 @@ class RouletteRenderer:
         wheel_r = int(ch * 0.223)
         hub_r = int(ch * 0.057)
         lighting = _build_wheel_lighting(wheel_r * 2 + 1)
-        blast_arc, final_rotation = _wheel_geometry(risk_percent, blasted)
+        blast_arc, final_rotation = _wheel_geometry(risk_percent, blasted, LANDING_FRACTIONS[variant])
 
         cjk_ok = _has_cjk_font()
         tag_font = _load_font(int(ch * 0.033))

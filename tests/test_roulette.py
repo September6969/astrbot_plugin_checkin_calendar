@@ -1,5 +1,6 @@
 """转盘 GIF 渲染与发送-停顿-撤回流程测试。"""
 
+import hashlib
 import json
 import os
 import time
@@ -14,7 +15,7 @@ from PIL import Image, ImageSequence
 from astrbot.api.message_components import At, Image as MsgImage, Plain
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot_plugin_checkin_calendar.presentation import format_probability
-from astrbot_plugin_checkin_calendar.roulette import BLAST_CRIMSON, POINTER_ANGLE, RouletteRenderer, _draw_sectors, _wheel_geometry
+from astrbot_plugin_checkin_calendar.roulette import BLAST_CRIMSON, LANDING_FRACTIONS, POINTER_ANGLE, RouletteRenderer, _draw_sectors, _wheel_geometry
 from test_commands import plugin, replies
 
 
@@ -41,11 +42,14 @@ def test_roulette_probability_label_keeps_decimals(risk, label):
 
 
 @pytest.mark.parametrize("risk,blasted", [(0, False), (0.003, False), (7.31, True), (24.85, False), (100, True)])
-def test_pointer_lands_in_selected_sector(risk, blasted):
-    arc, rotation = _wheel_geometry(risk, blasted)
+@pytest.mark.parametrize("fraction", LANDING_FRACTIONS)
+def test_pointer_lands_in_selected_sector(risk, blasted, fraction):
+    arc, rotation = _wheel_geometry(risk, blasted, fraction)
     assert arc == pytest.approx(risk * 3.6)
     local_pointer = (POINTER_ANGLE - rotation) % 360
     assert (local_pointer < arc) is blasted
+    start, width = (0, arc) if blasted else (arc, 360 - arc)
+    assert local_pointer == pytest.approx(start + width * fraction)
 
 
 @pytest.mark.parametrize("risk", [0, 0.5, 7.31, 24.85, 99.5, 100])
@@ -218,3 +222,20 @@ def test_gif_cache_keys_exact_area_and_outcome(tmp_path):
     assert renderer.render(7.3101, False, size=120) == first
     assert renderer.render(7.3102, False, size=120) != first
     assert renderer.render(7.3101, True, size=120) != first
+
+def test_animation_key_varies_landing_and_stable_keys_reuse_gif(tmp_path):
+    renderer = RouletteRenderer(tmp_path)
+    risk = 24.85
+    variants = {
+        hashlib.sha256(str(i).encode()).digest()[0] % len(LANDING_FRACTIONS): str(i)
+        for i in range(50)
+    }
+    assert len(variants) == len(LANDING_FRACTIONS)
+    first = renderer.render(risk, True, size=160, animation_key=variants[0])
+    second = renderer.render(risk, True, size=160, animation_key=variants[1])
+    assert first != second
+    assert renderer.render(risk, True, size=160, animation_key=variants[1]) == second
+    with Image.open(first) as left, Image.open(second) as right:
+        left.seek(left.n_frames - 1)
+        right.seek(right.n_frames - 1)
+        assert left.convert("RGB").tobytes() != right.convert("RGB").tobytes()
