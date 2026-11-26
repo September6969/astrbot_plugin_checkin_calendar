@@ -123,12 +123,14 @@ class CalendarStore:
         cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
         blast_cooldown_minutes: int = DEFAULT_BLAST_COOLDOWN_MINUTES,
         blast_max_percent: int = DEFAULT_BLAST_MAX_PERCENT,
+        on_entry_event=None,
     ):
         self.cooldown_minutes = bounded_int(cooldown_minutes, DEFAULT_COOLDOWN_MINUTES, 0, MAX_COOLDOWN_MINUTES)
         self.blast_cooldown_minutes = bounded_int(
             blast_cooldown_minutes, DEFAULT_BLAST_COOLDOWN_MINUTES, 1, MAX_COOLDOWN_MINUTES,
         )
         self.blast_max_percent = bounded_int(blast_max_percent, DEFAULT_BLAST_MAX_PERCENT, 0, 100)
+        self._on_entry_event = on_entry_event
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         con = self._connect()
@@ -250,6 +252,7 @@ class CalendarStore:
                     return Change(**json.loads(previous[0]), replay=True)
             day = now.date().isoformat()
             entry_id = None
+            undone_entry_id = None
             if action == "add":
                 state = self._risk(con, actor, now)
                 if state.available_at:
@@ -290,7 +293,8 @@ class CalendarStore:
                 # 只撤销今天最后一次，避免跨日误删历史记录。
                 row = con.execute("SELECT id FROM entries WHERE actor=? AND day=? AND undone=0 ORDER BY id DESC LIMIT 1", (actor, day)).fetchone()
                 if row:
-                    con.execute("UPDATE entries SET undone=1 WHERE id=?", (row[0],))
+                    undone_entry_id = row[0]
+                    con.execute("UPDATE entries SET undone=1 WHERE id=?", (undone_entry_id,))
                 result = Change("undone" if row else "empty", day)
             if result.status in {"added", "blasted"}:
                 con.execute(
@@ -299,6 +303,11 @@ class CalendarStore:
                     (actor, day, now.astimezone(timezone.utc).isoformat(timespec="microseconds"),
                      result.risk_percent, result.status, entry_id, result.available_at),
                 )
+            if self._on_entry_event is not None:
+                if result.status == "added" and entry_id is not None:
+                    self._on_entry_event(con, "added", actor, entry_id, now)
+                elif result.status == "undone" and undone_entry_id is not None:
+                    self._on_entry_event(con, "undone", actor, undone_entry_id, now)
             if token:
                 con.execute("INSERT INTO receipts(actor,token,result) VALUES (?,?,?)", (actor, token, json.dumps({"status": result.status, "day": result.day, "available_at": result.available_at, "risk_percent": result.risk_percent})))
             con.commit()

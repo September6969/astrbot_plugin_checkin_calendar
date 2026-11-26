@@ -12,6 +12,55 @@ from playwright.async_api import async_playwright
 from astrbot.api import logger
 
 
+def _encode_static_image(
+    png_bytes: bytes,
+    *,
+    output_format: str,
+    quality_steps: tuple[int, ...] = (85, 80, 75),
+    target_bytes: int = 150_000,
+    soft_cap_bytes: int = 250_000,
+    fallback_width: int = 640,
+) -> bytes:
+    """从无损 PNG 源单次编码为不透明 RGB WebP/JPEG，按目标体积自适应降档而不二次有损叠加。"""
+    fmt = "JPEG" if output_format.lower() in {"jpg", "jpeg"} else "WEBP"
+    with Image.open(BytesIO(png_bytes)) as src:
+        rgb = src.convert("RGB")
+
+    def _try_encode(img: Image.Image, quality: int) -> bytes:
+        buf = BytesIO()
+        if fmt == "WEBP":
+            img.save(buf, format="WEBP", quality=quality, method=6)
+        else:
+            img.save(buf, format="JPEG", quality=quality, subsampling=0, optimize=True)
+        return buf.getvalue()
+
+    best: bytes | None = None
+    for q in quality_steps:
+        candidate = _try_encode(rgb, q)
+        if best is None or len(candidate) < len(best):
+            best = candidate
+        if len(candidate) <= target_bytes:
+            return candidate
+
+    if best is not None and len(best) <= soft_cap_bytes:
+        return best
+
+    if rgb.width > fallback_width:
+        ratio = fallback_width / rgb.width
+        resized = rgb.resize(
+            (fallback_width, max(1, round(rgb.height * ratio))),
+            Image.Resampling.LANCZOS,
+        )
+        for q in (80, 75):
+            candidate = _try_encode(resized, q)
+            if best is None or len(candidate) < len(best):
+                best = candidate
+            if len(candidate) <= target_bytes:
+                return candidate
+
+    return best if best is not None else png_bytes
+
+
 def _compact_calendar_png(original: bytes, css_colors: list[str]) -> bytes:
     """压缩月历 PNG，调色板保留原本的日期色阶、文字色和底色。"""
     try:
@@ -77,12 +126,14 @@ class CalendarRenderer:
     def _prepare(self, template, data):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         # 只清理本渲染器一天前的临时图，给消息上传留出时间。
-        for path in self.output_dir.glob('calendar-*.png'):
-            try:
-                if path.stat().st_mtime < time.time() - 86400:
-                    path.unlink()
-            except OSError:
-                pass
+        cutoff = time.time() - 86400
+        for pattern in ('calendar-*.png', 'gacha-result-*'):
+            for path in self.output_dir.glob(pattern):
+                try:
+                    if path.stat().st_mtime < cutoff:
+                        path.unlink()
+                except OSError:
+                    pass
         if template != self._template_source:
             self._template = Environment(autoescape=True).from_string(template)
             self._template_source = template
@@ -94,7 +145,10 @@ class CalendarRenderer:
             if self._closed:
                 raise RuntimeError('月历渲染器已关闭')
             html = await asyncio.to_thread(self._prepare, template, data)
-            path = self.output_dir / f'calendar-{uuid.uuid4().hex}.png'
+            output_format = str(options.get('output_format', 'png')).lower()
+            prefix = str(options.get('prefix', 'calendar'))
+            ext = 'jpg' if output_format in {'jpg', 'jpeg'} else ('webp' if output_format == 'webp' else 'png')
+            path = self.output_dir / f'{prefix}-{uuid.uuid4().hex}.{ext}'
             context = None
             started = time.monotonic()
             stage = '启动浏览器'
@@ -116,8 +170,9 @@ class CalendarRenderer:
                     await Promise.all([...document.images].map(img => img.decode()));
                 }''')
                 compact_png = options.get('compact_png', False)
+                use_lossy = output_format in {'webp', 'jpg', 'jpeg'}
                 colors = []
-                if compact_png:
+                if compact_png and not use_lossy:
                     colors = await page.evaluate("""() =>
                         [...document.querySelectorAll('body, .status, .legend .swatch')].flatMap(element => {
                             const style = getComputedStyle(element);
@@ -126,11 +181,21 @@ class CalendarRenderer:
                     """)
                 stage = '截图'
                 png = await page.screenshot(
-                    path=None if compact_png else str(path), type='png', full_page=True, animations='disabled',
+                    path=None if (compact_png or use_lossy) else str(path), type='png', full_page=True, animations='disabled',
                 )
                 await context.close()
                 context = None
-                if compact_png:
+                if use_lossy:
+                    stage = '编码静态结果图'
+                    encoded = await asyncio.to_thread(
+                        _encode_static_image,
+                        png,
+                        output_format=output_format,
+                        target_bytes=int(options.get('target_bytes', 150_000)),
+                        soft_cap_bytes=int(options.get('soft_cap_bytes', 250_000)),
+                    )
+                    path.write_bytes(encoded)
+                elif compact_png:
                     stage = '压缩月历图片'
                     png = await asyncio.to_thread(_compact_calendar_png, png, colors)
                     path.write_bytes(png)

@@ -22,13 +22,45 @@ from .rendering import CalendarRenderer
 from .roulette import ROULETTE_MIN_VIEW_SECONDS, RouletteRenderer
 from .store import CalendarStore, DEFAULT_COOLDOWN_MINUTES, DEFAULT_BLAST_COOLDOWN_MINUTES, DEFAULT_BLAST_MAX_PERCENT
 from .ranking import ranking_payload, ranking_text, resolve_names
+from .gacha.assets import PortraitAssetResolver
+from .gacha.catalog import CatalogManager, PoolUnavailableError
+from .gacha.commands import (
+    format_checkin_gacha_hint,
+    format_gacha_history,
+    format_pokedex,
+    format_shop,
+    format_stats,
+    handle_exchange_command,
+    handle_mold_command,
+)
+from .gacha.presentation import GachaGifRenderer, orchestrate_ten_pull_presentation
+from .gacha.repository import GachaRepository, InsufficientTicketsError
+from .gacha.rewards import apply_checkin_event
+from .gacha.service import GachaService
 
 ROULETTE_RENDER_TIMEOUT = 8
 ROULETTE_SEND_TIMEOUT = 5
 ROULETTE_RECALL_TIMEOUT = 2
 
+GACHA_ACTIONS = frozenset({"十连", "图鉴", "抽卡历史", "统计", "商店", "铸模", "兑换"})
 TRIGGER_PATTERN = r"\A🦌\ufe0f?(?:\s+[\s\S]*)?\Z"
-HELP = "🦌馆月历\n🦌：记录一次并查看本月月历\n🦌 月历：只查看，不增加次数\n🦌 月历 2026-10：查看历史月份\n🦌 状态：查看月历、炸膛概率与冷却\n🦌 撤销：撤销今天最近一次\n🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n🦌 历史：随时查看本人判定（可组合 YYYY-MM、炸膛、页码；群内查询会发到当前群）\n🦌 帮助：查看说明\n直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历仅本人可查，排行为机器人全部用户。"
+HELP = (
+    "🦌馆月历\n"
+    "🦌：记录一次并查看本月月历（每2次有效打卡得1次十连资格）\n"
+    "🦌 月历：只查看，不增加次数\n"
+    "🦌 月历 2026-10：查看历史月份\n"
+    "🦌 状态：查看月历、炸膛概率与冷却\n"
+    "🦌 撤销：撤销今天最近一次\n"
+    "🦌 排行：查看整个机器人本月前十名（可加 YYYY-MM）\n"
+    "🦌 历史：随时查看本人判定（可组合 YYYY-MM、炸膛、页码；群内查询会发到当前群）\n"
+    "🦌 十连 / 🦌 十连 快速：消耗1次资格十连招募（快速模式跳过GIF）\n"
+    "🦌 图鉴 [页码|SSR/SR/R|企业|未拥有|角色名]：查看图鉴或角色详情\n"
+    "🦌 抽卡历史 [编号|页 页码|角色名]：查看十连记录与角色获取历史\n"
+    "🦌 统计：查看个人招募统计与仓检概率\n"
+    "🦌 商店 / 🦌 铸模 / 🦌 兑换 角色名：查看余额、完美铸模或金票兑换\n"
+    "🦌 帮助：查看说明\n"
+    "直接发送即可，无需斜杠。撤销不降低风险或解除冷却。个人月历与抽卡记录仅本人可查，排行为机器人全部用户。"
+)
 
 
 class CheckinCalendarPlugin(Star):
@@ -39,12 +71,33 @@ class CheckinCalendarPlugin(Star):
         self.cooldown_reset_admin_qq = admin_qq if re.fullmatch(r"[1-9][0-9]{4,11}", admin_qq) else ""
         self.timezone_name = str(config.get("timezone", "Asia/Shanghai"))
         self.timezone = ZoneInfo(self.timezone_name)
+        data_dir = StarTools.get_data_dir("astrbot_plugin_checkin_calendar")
         self.store = CalendarStore(
-            StarTools.get_data_dir("astrbot_plugin_checkin_calendar") / "calendar.sqlite3",
+            data_dir / "calendar.sqlite3",
             cooldown_minutes=config.get("cooldown", DEFAULT_COOLDOWN_MINUTES),
             blast_cooldown_minutes=config.get("blast_cooldown_minutes", DEFAULT_BLAST_COOLDOWN_MINUTES),
             blast_max_percent=config.get("blast_max_percent", DEFAULT_BLAST_MAX_PERCENT),
+            on_entry_event=apply_checkin_event,
         )
+        self.gacha_repo = GachaRepository(self.store.path)
+        self.gacha_catalog = CatalogManager(
+            Path(__file__).parent / "assets/gacha/jp_pool_snapshot.json",
+            runtime_dir=data_dir / "gacha_catalog",
+        )
+        self.gacha_service = GachaService(self.gacha_catalog, self.gacha_repo)
+        self.gacha_assets = PortraitAssetResolver(data_dir / "nikke_assets")
+        self.gacha_gif_renderer = GachaGifRenderer(
+            Path(__file__).parent / "assets/gacha",
+            output_dir=self.store.path.parent / "rendered",
+        )
+        self.gacha_gif_enabled = bool(config.get("gacha_gif_enabled", True))
+        try:
+            buf_seconds = float(config.get("gacha_gif_buffer_seconds", 1.0))
+        except (TypeError, ValueError):
+            buf_seconds = 1.0
+        self.gacha_gif_buffer_seconds = max(0.0, min(5.0, buf_seconds))
+        fmt = str(config.get("gacha_result_format", "webp")).strip().lower()
+        self.gacha_result_format = fmt if fmt in {"webp", "jpeg"} else "webp"
         self.template = (Path(__file__).parent / "templates/calendar.html").read_text(encoding="utf-8")
         self.calendar_renderer = CalendarRenderer(self.store.path.parent / "rendered")
         self.roulette_renderer = RouletteRenderer(self.store.path.parent / "rendered")
@@ -78,6 +131,11 @@ class CheckinCalendarPlugin(Star):
         parts = text.split()
         if len(parts) > 1 and parts[1] == "历史":
             yield await self._history(event, parts[2:])
+            return
+        if len(parts) > 1 and parts[1] in GACHA_ACTIONS:
+            reply = await self._handle_gacha(event, parts[1], parts[2:])
+            if reply is not None:
+                yield reply
             return
         if len(parts) > 3:
             yield event.plain_result(self._help())
@@ -160,6 +218,12 @@ class CheckinCalendarPlugin(Star):
                 message = {"added": "记录成功", "undone": "已撤销今天最近一次", "empty": "今天没有可撤销的记录"}[result.status]
             if result.status == "added" and result.risk_percent:
                 message += f"（本次炸膛概率 {format_probability(result.risk_percent)}，未触发）"
+            if not result.replay and result.status in {"added", "undone"} and getattr(self, "gacha_repo", None) is not None:
+                try:
+                    wallet = await asyncio.to_thread(self.gacha_repo.get_wallet, actor)
+                    message += "\n" + format_checkin_gacha_hint(wallet)
+                except (sqlite3.Error, OSError):
+                    logger.warning("[打卡月历] 读取招募进度失败")
             if result.replay:
                 message = "这条消息已处理，未重复计数或撤销"
             if result.status == "cooldown":
@@ -196,6 +260,80 @@ class CheckinCalendarPlugin(Star):
         # 原生艾特放在图片之前，使用平台用户 ID，避免昵称同名造成误艾特。
         reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
         yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
+
+    async def _handle_gacha(self, event: AstrMessageEvent, action: str, args: list[str]):
+        platform = str(event.get_platform_id() or "")
+        bot = str(event.get_self_id() or "")
+        user = str(event.get_sender_id() or "")
+        if not platform or not bot or not user:
+            return event.make_result().message("未取得完整用户身份，暂时无法操作招募系统。").use_t2i(False)
+        if getattr(self, "gacha_service", None) is None:
+            return event.make_result().message("招募系统尚未初始化。").use_t2i(False)
+
+        actor = json.dumps([platform, bot, user], ensure_ascii=False)
+        now = datetime.now(self.timezone)
+        try:
+            if event.get_sender_name():
+                await asyncio.to_thread(self.store.save_name, actor, clean_name(event.get_sender_name()))
+        except (sqlite3.Error, OSError):
+            logger.warning("[妮姬招募] 昵称暂未保存")
+
+        message_id = str(getattr(event.message_obj, "message_id", "") or "")
+
+        if action == "图鉴":
+            text = await asyncio.to_thread(format_pokedex, self.gacha_service, actor, args, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+        if action == "抽卡历史":
+            text = await asyncio.to_thread(format_gacha_history, self.gacha_service, actor, args, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+        if action == "统计":
+            if args:
+                return event.make_result().message("用法：🦌 统计").use_t2i(False)
+            text = await asyncio.to_thread(format_stats, self.gacha_service, actor, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+        if action == "商店":
+            if args:
+                return event.make_result().message("用法：🦌 商店").use_t2i(False)
+            text = await asyncio.to_thread(format_shop, self.gacha_service, actor, now, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+        if action == "铸模":
+            if args:
+                return event.make_result().message("用法：🦌 铸模").use_t2i(False)
+            idem = json.dumps(["mold", event.unified_msg_origin, message_id]) if message_id else str(uuid.uuid4())
+            text = await asyncio.to_thread(handle_mold_command, self.gacha_service, actor, idem, now, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+        if action == "兑换":
+            idem = json.dumps(["exchange", event.unified_msg_origin, message_id]) if message_id else str(uuid.uuid4())
+            text = await asyncio.to_thread(handle_exchange_command, self.gacha_service, actor, idem, args, now, self.timezone)
+            return event.make_result().message(text).use_t2i(False)
+
+        # action == "十连"
+        if args not in ([], ["快速"]):
+            return event.make_result().message("用法：🦌 十连 或 🦌 十连 快速").use_t2i(False)
+        fast_mode = args == ["快速"]
+        idem = json.dumps(["ten_pull", event.unified_msg_origin, message_id]) if message_id else str(uuid.uuid4())
+        try:
+            record = await asyncio.to_thread(self.gacha_service.ten_pull, actor, idem, now)
+        except (InsufficientTicketsError, PoolUnavailableError, ValueError) as exc:
+            return event.make_result().message(str(exc)).use_t2i(False)
+        except (sqlite3.Error, OSError):
+            logger.exception("[妮姬招募] 十连事务保存异常")
+            return event.make_result().message("十连结算暂时无法确认，请先用 🦌 抽卡历史 或 🦌 统计 核对。").use_t2i(False)
+
+        return await orchestrate_ten_pull_presentation(
+            record=record,
+            event=event,
+            service=self.gacha_service,
+            calendar_renderer=self.calendar_renderer,
+            gif_renderer=getattr(self, "gacha_gif_renderer", None),
+            resolver=self.gacha_assets,
+            owner_name=event.get_sender_name() or "我",
+            tz=self.timezone,
+            fast_mode=fast_mode or record.replay,
+            gif_enabled=getattr(self, "gacha_gif_enabled", True),
+            gif_buffer_seconds=getattr(self, "gacha_gif_buffer_seconds", 1.0),
+            result_format=getattr(self, "gacha_result_format", "webp"),
+        )
 
     async def _history(self, event, args):
         if any(isinstance(component, (At, AtAll)) for component in event.get_messages()):

@@ -17,6 +17,14 @@
 | `🦌 排行 2026-10` | 查看指定月份的排行 |
 | `🦌 历史` | 查看本人最近 10 次有效判定与统计 |
 | `🦌 历史 2026-11 炸膛 2` | 查看指定月份的炸膛记录第 2 页 |
+| `🦌 十连` | 消耗 1 次十连资格，发送机械门闸+十小人扫描 GIF 后发送 2×5 静态结算图并撤回 GIF |
+| `🦌 十连 快速` | 相同招募规则，跳过 GIF 仅发送静态结算图 |
+| `🦌 图鉴` | 纯文本收藏总览（支持 `页码`、`SSR/SR/R`、`企业`、`未拥有`、`角色名`） |
+| `🦌 抽卡历史` | 纯文本十连记录（支持 `编号`、`页 页码`、`角色名`） |
+| `🦌 统计` | 纯文本个人招募统计与 `nikke-balance-v1` 动态仓检概率 |
+| `🦌 商店` | 查看金票、躯体标签、完美铸模与当期 UP 兑换名单 |
+| `🦌 铸模` | 消耗 6000 躯体标签开启完美铸模（100% 获得铸模池随机 SSR） |
+| `🦌 兑换 角色名` | 消耗 200 黄金里程券兑换当期可兑换 UP 角色 |
 | `🦌 帮助` | 查看命令说明 |
 
 直接发送 `🦌` 即可触发，无需斜杠或唤醒词。原 `/打卡` 命令不再注册，普通聊天中夹带 emoji 不会触发。
@@ -136,3 +144,16 @@ python scripts/preview.py --output E:/DevCache/checkin-calendar-review/previews
 `scripts/build_font_shards.py --source <原始calendar-sans.woff2路径>` 可重新生成字体分片，使用开发依赖 `fonttools[woff]`。原始字体可从 v0.1.7 对应 Git 历史获取，SHA-256 记录在 `assets/fonts/index.json`；运行插件不需要安装 FontTools，也不现场切割字体。
 
 排行榜使用本地 Chromium，与月历共用串行渲染器。`scripts/preview_ranking.py --output <目录>` 覆盖正常、空榜、超长昵称与大数值。
+
+## NIKKE 招募与集卡小游戏
+
+- **打卡联动**：每 2 次有效 `🦌` 打卡发放 1 次十连资格；上线前历史打卡不补发（通过 `gacha_meta.cutoff_entry_id` 边界控制）。撤销今日记录会通过 `gacha_reward_ledger` 回收未消费资格或记入待抵扣债务，防止反复套取。
+- **动态仓检（`nikke-balance-v1`）**：逐抽实时计算 `deficit = N - 25*S`，分母 `12500` 下 SSR 分子 `clamp(500 + 2*deficit, 325, 1000)`（对应 2.6%～8.0%，长期基准 4.0%），非 SSR 按 `43:53` 条件分配 SR/R。仅正常十连参与统计，完美铸模与金票兑换不改变 `N`/`S`。
+- **资源与溢出**：R 溢出返还 `150`、SR 溢出返还 `200`、SSR 满 `CORE+7`（第 12 张起）溢出返还 `6000` 躯体标签；`6000` 标签可开启完美铸模（全满池时自动保护拒绝），`200` 金票可兑换当期快照有效 UP。
+- **卡池与立绘缓存**：默认内置日本服务器（JP）版本化快照 `assets/gacha/jp_pool_snapshot.json`。如需离线同步 BLA MI/SI 角色立绘缓存至插件数据目录，可执行：
+
+```sh
+python scripts/sync_nikke_assets.py --cache-dir <AstrBot插件数据目录>/nikke_assets --kind mi --download
+```
+
+- **数据库备份与回滚**：所有 Gacha 表（`gacha_*`）与打卡表共用 `calendar.sqlite3` 且通过 `gacha_migrations` 隔离，升级前备份该数据库文件即可无损回滚。

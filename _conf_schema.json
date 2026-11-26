@@ -40,5 +40,23 @@
     "type": "float",
     "default": 4.5,
     "hint": "设为 0 时立即撤回；正数至少等待 4.5 秒，以便完整播放转盘及最终定格。"
+  },
+  "gacha_gif_enabled": {
+    "description": "是否启用十连招募 GIF 动画",
+    "type": "bool",
+    "default": true,
+    "hint": "仅影响 🦌 十连 的机械门闸与十小人扫描动画；🦌 十连 快速 始终跳过 GIF。"
+  },
+  "gacha_gif_buffer_seconds": {
+    "description": "十连 GIF 额外缓冲秒数",
+    "type": "float",
+    "default": 1.0,
+    "hint": "范围 0～5 秒。在编码动画时长基础上额外等待，再发送静态结算图并撤回 GIF。"
+  },
+  "gacha_result_format": {
+    "description": "十连静态结算图编码格式",
+    "type": "string",
+    "default": "webp",
+    "hint": "可选 webp 或 jpeg。默认 webp，支持自动按 150 KB 目标体积压缩。"
   }
 }

@@ -13,3 +13,9 @@
 `arcana-roulette.png` 是用户提供的阿尔卡娜透明贴图。
 
 `roulette-sans.ttf` 是 [Noto Sans SC](https://github.com/google/fonts/tree/main/ofl/notosanssc) 的轮盘文案字形子集，采用 SIL Open Font License 1.1。
+
+# NIKKE 招募小游戏素材与卡池快照
+
+- `gacha/jp_pool_snapshot.json` 记录由本地核验构建的日本服务器（JP）卡池快照及 SHA-256 摘要，仅包含角色元数据、官方 BlaBlaLink CDN 散列映射及卡池资格规则说明，不含玩家数据或运行缓存。
+- `gacha/intro_r.gif`、`gacha/intro_sr.gif`、`gacha/intro_ssr.gif` 为通过 `scripts/build_gacha_intro.py` 离线绘制的程序化几何门闸过场动画，随插件源码适用 MIT 许可证。
+- 运行时按需同步缓存的角色头像（BLA MI `256×512` / SI `128×128` WebP）属于《胜利女神：妮姬》（GODDESS OF VICTORY: NIKKE）及其权利人 SHIFT UP / Level Infinite 所有，不随插件安装包分发，亦不适用本仓库 MIT 代码许可证。

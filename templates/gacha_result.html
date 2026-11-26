@@ -1,0 +1,210 @@
+{% autoescape true %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+{% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{ font.data }}') format('woff2');font-display:block;unicode-range:{{ font.unicode_range }}}
+{% endfor %}
+*{box-sizing:border-box}
+html,body{margin:0;width:720px;background:#eceff4;color:#1e2430}
+body{
+  font-family:CalendarSans,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;
+  padding:20px 22px 18px;
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(165deg,#f3f5f8 0%,#e5e9f0 55%,#dde2ea 100%);
+}
+.bg-grid{
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(to right,rgba(30,41,59,.045) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(30,41,59,.045) 1px,transparent 1px);
+  background-size:36px 36px;
+}
+.bg-watermark{
+  position:absolute;left:-14px;right:-14px;top:52px;bottom:34px;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;z-index:0;user-select:none;overflow:hidden;
+}
+.bg-watermark .big-n{
+  font-size:440px;font-weight:900;letter-spacing:-18px;
+  color:rgba(15,23,42,.045);line-height:1;
+}
+.bg-watermark .nikke-band{
+  position:absolute;left:0;right:0;text-align:center;
+  font-size:132px;font-weight:900;letter-spacing:22px;
+  color:rgba(15,23,42,.05);line-height:1;
+}
+.wrap{position:relative;z-index:1}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;padding:10px 14px;
+  background:rgba(255,255,255,.86);
+  border:1px solid #cbd5e1;border-left:5px solid #0f172a;
+  border-radius:8px;
+}
+.title-group{display:flex;align-items:baseline;gap:10px;min-width:0}
+.title-main{font-size:20px;font-weight:700;color:#0f172a;letter-spacing:1px;white-space:nowrap}
+.title-sub{font-size:12px;font-weight:700;color:#64748b;letter-spacing:1.6px;white-space:nowrap}
+.owner-meta{text-align:right;min-width:0;max-width:340px}
+.owner-name{font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.session-meta{font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+}
+.card{
+  position:relative;
+  height:278px;
+  border-radius:8px;
+  overflow:hidden;
+  background:#1f242d;
+  border:2px solid #94a3b8;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 4px 10px rgba(15,23,42,.10);
+}
+.card.rarity-R{border-color:#3b82f6}
+.card.rarity-SR{border-color:#a855f7}
+.card.rarity-SSR{
+  border-color:#f59e0b;
+  box-shadow:0 0 0 1px rgba(251,191,36,.45),0 6px 16px rgba(245,158,11,.25);
+}
+.rarity-bar{height:5px;width:100%;flex:none}
+.rarity-R .rarity-bar{background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.rarity-SR .rarity-bar{background:linear-gradient(90deg,#7e22ce,#c084fc)}
+.rarity-SSR .rarity-bar{background:linear-gradient(90deg,#d97706,#fde047,#f59e0b)}
+.portrait-box{
+  position:relative;flex:1;min-height:0;overflow:hidden;
+  background:#181c24;display:flex;align-items:center;justify-content:center;
+}
+.rarity-R .portrait-box{background:radial-gradient(circle at 50% 35%,#1e3a5f,#141923 80%)}
+.rarity-SR .portrait-box{background:radial-gradient(circle at 50% 35%,#3b1f5e,#171524 80%)}
+.rarity-SSR .portrait-box{background:radial-gradient(circle at 50% 35%,#5b3f10,#1d1914 82%)}
+.portrait-mi{
+  width:100%;height:100%;object-fit:cover;object-position:center 12%;display:block;
+}
+.portrait-si{
+  width:84px;height:84px;border-radius:14px;object-fit:cover;
+  border:2px solid rgba(255,255,255,.35);
+  box-shadow:0 6px 14px rgba(0,0,0,.45);
+}
+.portrait-placeholder{
+  width:72px;height:112px;opacity:.75;
+}
+.rarity-badge{
+  position:absolute;top:6px;left:6px;z-index:2;
+  padding:2px 6px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.6px;
+  color:#fff;line-height:1.2;
+}
+.rarity-R .rarity-badge{background:rgba(37,99,235,.92)}
+.rarity-SR .rarity-badge{background:rgba(147,51,234,.92)}
+.rarity-SSR .rarity-badge{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}
+.slot-index{
+  position:absolute;top:6px;right:6px;z-index:2;
+  font-size:10px;font-weight:700;color:rgba(255,255,255,.55);
+  background:rgba(15,23,42,.55);padding:1px 5px;border-radius:3px;
+}
+.card-footer{
+  flex:none;
+  padding:7px 7px 8px;
+  background:rgba(255,255,255,.95);
+  border-top:1px solid rgba(15,23,42,.08);
+  min-height:60px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:4px;
+}
+.char-name{
+  font-size:12px;font-weight:700;color:#0f172a;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  word-break:break-word;
+}
+.status-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.status-pill{
+  display:inline-block;padding:2px 6px;border-radius:4px;
+  font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;
+}
+.status-new{background:#fef3c7;color:#b45309;border:1px solid #f59e0b}
+.status-rank{background:#e2e8f0;color:#1e293b}
+.rarity-SSR .status-rank{background:#fef9c3;color:#854d0e}
+.rarity-SR .status-rank{background:#f3e8ff;color:#6b21a8}
+.status-overflow{background:#dcfce7;color:#166534;border:1px solid #86efac}
+.summary-bar{
+  margin-top:14px;padding:10px 14px;
+  background:rgba(255,255,255,.90);
+  border:1px solid #cbd5e1;border-radius:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  font-size:12.5px;color:#334155;
+}
+.summary-left,.summary-right{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.chip{
+  background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;
+  padding:3px 8px;font-weight:600;color:#0f172a;white-space:nowrap;
+}
+.chip.ssr{background:#fef3c7;border-color:#fbbf24;color:#92400e}
+</style>
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-watermark" aria-hidden="true">
+  <div class="big-n">N</div>
+  <div class="nikke-band">NIKKE</div>
+</div>
+<main class="wrap">
+  <header class="topbar">
+    <div class="title-group">
+      <span class="title-main">招募结果</span>
+      <span class="title-sub">RECRUITMENT // #{{ session_code }}</span>
+    </div>
+    <div class="owner-meta">
+      <div class="owner-name">{{ owner_name }}</div>
+      <div class="session-meta">{{ created_at_local }} · {{ snapshot_version }}</div>
+    </div>
+  </header>
+
+  <section class="grid">
+    {% for card in cards %}
+    <article class="card rarity-{{ card.rarity }}">
+      <div class="rarity-bar"></div>
+      <div class="portrait-box">
+        <span class="rarity-badge">{{ card.rarity }}</span>
+        <span class="slot-index">{{ "%02d"|format(card.slot) }}</span>
+        {% if card.portrait_data_uri and card.portrait_kind == "mi" %}
+          <img class="portrait-mi" src="{{ card.portrait_data_uri }}" alt="{{ card.name }}">
+        {% elif card.portrait_data_uri and card.portrait_kind == "si" %}
+          <img class="portrait-si" src="{{ card.portrait_data_uri }}" alt="{{ card.name }}">
+        {% else %}
+          <svg class="portrait-placeholder" viewBox="0 0 64 96" aria-hidden="true">
+            <circle cx="32" cy="22" r="12" fill="rgba(255,255,255,0.42)"/>
+            <path d="M14 50c0-10 8-16 18-16s18 6 18 16l-4 34c-1 6-6 9-14 9s-13-3-14-9z" fill="rgba(255,255,255,0.34)"/>
+          </svg>
+        {% endif %}
+      </div>
+      <div class="card-footer">
+        <div class="char-name">{{ card.name }}</div>
+        <div class="status-row">
+          <span class="status-pill {{ card.status_class }}">{{ card.status_label }}</span>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+
+  <footer class="summary-bar">
+    <div class="summary-left">
+      <span class="chip ssr">SSR × {{ ssr_count }}</span>
+      <span class="chip">金票 +{{ mileage_gained }}</span>
+      <span class="chip">躯体标签 +{{ labels_gained }}</span>
+    </div>
+    <div class="summary-right">
+      <span>余票 {{ available_tickets }}</span>
+      <span>· 金票 {{ golden_mileage }}</span>
+      <span>· 标签 {{ body_labels }}</span>
+      <span>· 累计出率 {{ cumulative_ssr_rate }}</span>
+    </div>
+  </footer>
+</main>
+</body>
+</html>
+{% endautoescape %}
