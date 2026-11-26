@@ -1,6 +1,5 @@
 """转盘 GIF 渲染与发送-停顿-撤回流程测试。"""
 
-import hashlib
 import json
 import os
 import time
@@ -15,7 +14,7 @@ from PIL import Image, ImageSequence
 from astrbot.api.message_components import At, Image as MsgImage, Plain
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot_plugin_checkin_calendar.presentation import format_probability
-from astrbot_plugin_checkin_calendar.roulette import BLAST_CRIMSON, LANDING_FRACTIONS, POINTER_ANGLE, RouletteRenderer, _draw_sectors, _wheel_geometry
+from astrbot_plugin_checkin_calendar.roulette import BLAST_CRIMSON, POINTER_ANGLE, RouletteRenderer, _draw_sectors, _landing_fraction, _wheel_geometry
 from test_commands import plugin, replies
 
 
@@ -42,7 +41,7 @@ def test_roulette_probability_label_keeps_decimals(risk, label):
 
 
 @pytest.mark.parametrize("risk,blasted", [(0, False), (0.003, False), (7.31, True), (24.85, False), (100, True)])
-@pytest.mark.parametrize("fraction", LANDING_FRACTIONS)
+@pytest.mark.parametrize("fraction", [0.12, 0.24, 0.5, 0.63, 0.88])
 def test_pointer_lands_in_selected_sector(risk, blasted, fraction):
     arc, rotation = _wheel_geometry(risk, blasted, fraction)
     assert arc == pytest.approx(risk * 3.6)
@@ -223,19 +222,28 @@ def test_gif_cache_keys_exact_area_and_outcome(tmp_path):
     assert renderer.render(7.3102, False, size=120) != first
     assert renderer.render(7.3101, True, size=120) != first
 
+def test_message_keys_spread_landing_within_sector():
+    fractions = {_landing_fraction(str(i)) for i in range(128)}
+    assert len(fractions) == 128
+    assert 0.12 <= min(fractions) < 0.18
+    assert 0.82 < max(fractions) <= 0.88
+    for risk, blasted in ((0.003, True), (24.85, True), (24.85, False), (99.997, False)):
+        for fraction in fractions:
+            arc, rotation = _wheel_geometry(risk, blasted, fraction)
+            pointer = (POINTER_ANGLE - rotation) % 360
+            assert (pointer < arc) is blasted
+
+
 def test_animation_key_varies_landing_and_stable_keys_reuse_gif(tmp_path):
     renderer = RouletteRenderer(tmp_path)
     risk = 24.85
-    variants = {
-        hashlib.sha256(str(i).encode()).digest()[0] % len(LANDING_FRACTIONS): str(i)
-        for i in range(50)
-    }
-    assert len(variants) == len(LANDING_FRACTIONS)
-    first = renderer.render(risk, True, size=160, animation_key=variants[0])
-    second = renderer.render(risk, True, size=160, animation_key=variants[1])
+    first = renderer.render(risk, True, size=160, animation_key="checkin-1")
+    second = renderer.render(risk, True, size=160, animation_key="checkin-2")
     assert first != second
-    assert renderer.render(risk, True, size=160, animation_key=variants[1]) == second
+    assert renderer.render(risk, True, size=160, animation_key="checkin-2") == second
     with Image.open(first) as left, Image.open(second) as right:
         left.seek(left.n_frames - 1)
         right.seek(right.n_frames - 1)
         assert left.convert("RGB").tobytes() != right.convert("RGB").tobytes()
+    zero = renderer.render(0, False, size=160, animation_key="checkin-3")
+    assert renderer.render(0, False, size=160, animation_key="checkin-4") == zero

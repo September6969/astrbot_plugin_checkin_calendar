@@ -56,7 +56,14 @@ def _has_cjk_font() -> bool:
 POINTER_ANGLE = 270.0
 ROULETTE_MIN_VIEW_SECONDS = 4.5
 FINAL_HOLD_MS = 2220
-LANDING_FRACTIONS = (0.50, 0.26, 0.38, 0.62, 0.74)
+
+
+def _landing_fraction(animation_key: str) -> float:
+    if not animation_key:
+        return 0.5
+    # 由消息标识取得可复现的落点，离扇区两边各保留 12%。
+    bits = int.from_bytes(sha256(animation_key.encode("utf-8")).digest()[:4], "big")
+    return 0.12 + 0.76 * (bits / (1 << 32))
 
 
 def _wheel_geometry(risk_percent: float, blasted: bool, landing_fraction: float = 0.5) -> tuple[float, float]:
@@ -263,8 +270,8 @@ class RouletteRenderer:
         """同步生成正方形转盘 GIF，返回文件路径。"""
         self._cleanup_old()
         # 消息标识只选择扇区内的演出落点，缓存复用相同概率和落点的 GIF。
-        variant = sha256(animation_key.encode()).digest()[0] % len(LANDING_FRACTIONS) if animation_key else 0
-        cache_key = sha256(f"4:{size}:{float(risk_percent).hex()}:{blasted}:{variant}".encode()).hexdigest()[:24]
+        fraction = 0.5 if risk_percent in (0, 100) else _landing_fraction(animation_key)
+        cache_key = sha256(f"5:{size}:{float(risk_percent).hex()}:{blasted}:{fraction.hex()}".encode()).hexdigest()[:24]
         out_path = self.output_dir / f"roulette-{cache_key}.gif"
         if out_path.is_file():
             return str(out_path)
@@ -279,7 +286,7 @@ class RouletteRenderer:
         wheel_r = int(ch * 0.223)
         hub_r = int(ch * 0.057)
         lighting = _build_wheel_lighting(wheel_r * 2 + 1)
-        blast_arc, final_rotation = _wheel_geometry(risk_percent, blasted, LANDING_FRACTIONS[variant])
+        blast_arc, final_rotation = _wheel_geometry(risk_percent, blasted, fraction)
 
         cjk_ok = _has_cjk_font()
         tag_font = _load_font(int(ch * 0.033))
