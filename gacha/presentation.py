@@ -27,10 +27,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INTRO_DIR = ROOT / "assets" / "gacha"
 DEFAULT_RESULT_TEMPLATE = ROOT / "templates" / "gacha_result.html"
 
-ANIMATION_VERSION = "nikke-gacha-anim-v1"
+ANIMATION_VERSION = "nikke-gacha-anim-v2"
 CANVAS_W = 360
 CANVAS_H = 640
 CHARCOAL_BG = (34, 32, 30)  # #22201E
+HOLD_FINAL_MS = 3500
+RECALL_HOLD_MS = 900
 
 RARITY_PART_B_COLORS = {
     "R": {
@@ -319,7 +321,7 @@ class GachaGifRenderer:
 
         # 初始全暗帧
         frames.append(_compose(-1, {}, 0))
-        durations.append(100)
+        durations.append(80)
 
         # 从左向右逐个扫过 0..9
         for active in range(10):
@@ -331,17 +333,17 @@ class GachaGifRenderer:
             if active + 1 < 10:
                 beams[active + 1] = 0.34
             frames.append(_compose(active, beams, active + 1 if active + 1 < 10 else None))
-            durations.append(110)
+            durations.append(100)
 
-        # 光柱退去并短暂停留全亮状态
+        # 光柱退去，十人全亮定格保持 3500ms（播放一次不重播，等待结果图送达后撤回）
         frames.append(_compose(9, {9: 0.35, 8: 0.14}, None))
-        durations.append(100)
+        durations.append(90)
         frames.append(_compose(9, {}, None))
-        durations.append(550)
+        durations.append(HOLD_FINAL_MS)
         return frames, durations
 
     def render_bytes(self, rarities: Sequence[str]) -> tuple[bytes, float]:
-        """生成 Part A + Part B 合成单一 GIF 字节流，并返回实际编码播放总时长（秒）。"""
+        """生成 Part A + Part B 合成单一 GIF 字节流（仅播一次不循环），返回适合衔接撤回的等待秒数。"""
         seq = tuple(rarities)
         if len(seq) != 10 or any(r not in RARITY_PART_B_COLORS for r in seq):
             raise ValueError(f"十连动画需要 10 位有效稀有度: {seq!r}")
@@ -357,11 +359,12 @@ class GachaGifRenderer:
 
         all_frames = part_a_frames + part_b_frames
         all_durs = part_a_durs + part_b_durs
-        total_seconds = sum(all_durs) / 1000.0
+        # 在最终十人定格期间（扫完后约 0.9s，远早于 3500ms 定格结束）触发结果发送与撤回，避免重新播放。
+        wait_seconds = (sum(all_durs[:-1]) + RECALL_HOLD_MS) / 1000.0
 
-        # 逐段自适应量化，同时保持 Part A/B 各帧色相准确、体积可控。
+        # 逐段自适应量化，同时保持 Part A/B 各帧色相准确、体积可控；省略 loop 参数以禁止循环重播。
         quantized = [
-            f.quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+            f.quantize(colors=64, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
             for f in all_frames
         ]
         buf = BytesIO()
@@ -371,16 +374,15 @@ class GachaGifRenderer:
             save_all=True,
             append_images=quantized[1:],
             duration=all_durs,
-            loop=1,
             optimize=True,
             disposal=2,
         )
         gif_bytes = buf.getvalue()
 
-        # 若体积超过 500 KB 目标，自动用 64 色再重采样一次（不修改序列或时长）。
+        # 若体积超过 500 KB 目标，自动用 48 色再重采样一次（不修改序列或时长）。
         if len(gif_bytes) > 500_000:
             quantized_compact = [
-                f.quantize(colors=64, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+                f.quantize(colors=48, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
                 for f in all_frames
             ]
             buf_compact = BytesIO()
@@ -390,17 +392,16 @@ class GachaGifRenderer:
                 save_all=True,
                 append_images=quantized_compact[1:],
                 duration=all_durs,
-                loop=1,
                 optimize=True,
                 disposal=2,
             )
             if len(buf_compact.getvalue()) < len(gif_bytes):
                 gif_bytes = buf_compact.getvalue()
 
-        self._cache[key] = (gif_bytes, total_seconds)
+        self._cache[key] = (gif_bytes, wait_seconds)
         while len(self._cache) > self.cache_capacity:
             self._cache.popitem(last=False)
-        return gif_bytes, total_seconds
+        return gif_bytes, wait_seconds
 
 
 async def _send_onebot_segments(

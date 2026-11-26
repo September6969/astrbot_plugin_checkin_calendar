@@ -10,7 +10,7 @@
 html,body{margin:0;width:720px;background:#eceff4;color:#1e2430}
 body{
   font-family:CalendarSans,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;
-  padding:20px 22px 18px;
+  padding:18px 20px 16px;
   position:relative;
   overflow:hidden;
   background:linear-gradient(165deg,#f3f5f8 0%,#e5e9f0 55%,#dde2ea 100%);
@@ -18,38 +18,38 @@ body{
 .bg-grid{
   position:absolute;inset:0;pointer-events:none;z-index:0;
   background-image:
-    linear-gradient(to right,rgba(30,41,59,.045) 1px,transparent 1px),
-    linear-gradient(to bottom,rgba(30,41,59,.045) 1px,transparent 1px);
+    linear-gradient(to right,rgba(30,41,59,.04) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(30,41,59,.04) 1px,transparent 1px);
   background-size:36px 36px;
 }
 .bg-watermark{
-  position:absolute;left:-14px;right:-14px;top:52px;bottom:34px;
+  position:absolute;left:-14px;right:-14px;top:40px;bottom:28px;
   display:flex;align-items:center;justify-content:center;
   pointer-events:none;z-index:0;user-select:none;overflow:hidden;
 }
 .bg-watermark .big-n{
-  font-size:440px;font-weight:900;letter-spacing:-18px;
-  color:rgba(15,23,42,.045);line-height:1;
+  font-size:420px;font-weight:900;letter-spacing:-18px;
+  color:rgba(15,23,42,.04);line-height:1;
 }
 .bg-watermark .nikke-band{
   position:absolute;left:0;right:0;text-align:center;
-  font-size:132px;font-weight:900;letter-spacing:22px;
-  color:rgba(15,23,42,.05);line-height:1;
+  font-size:126px;font-weight:900;letter-spacing:22px;
+  color:rgba(15,23,42,.045);line-height:1;
 }
 .wrap{position:relative;z-index:1}
 .topbar{
   display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:14px;padding:10px 14px;
-  background:rgba(255,255,255,.86);
-  border:1px solid #cbd5e1;border-left:5px solid #0f172a;
-  border-radius:8px;
+  margin-bottom:12px;padding:8px 14px;
+  background:rgba(255,255,255,.82);
+  border:1px solid #d5dde7;border-left:4px solid #334155;
+  border-radius:7px;
 }
-.title-group{display:flex;align-items:baseline;gap:10px;min-width:0}
-.title-main{font-size:20px;font-weight:700;color:#0f172a;letter-spacing:1px;white-space:nowrap}
-.title-sub{font-size:12px;font-weight:700;color:#64748b;letter-spacing:1.6px;white-space:nowrap}
-.owner-meta{text-align:right;min-width:0;max-width:340px}
-.owner-name{font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.session-meta{font-size:11px;color:#64748b;margin-top:2px;white-space:nowrap}
+.title-main{font-size:18px;font-weight:700;color:#0f172a;letter-spacing:.8px;white-space:nowrap}
+.owner-meta{
+  font-size:13px;font-weight:500;color:#475569;
+  max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.owner-meta .sess{color:#94a3b8;margin-left:8px;font-size:12px}
 .grid{
   display:grid;
   grid-template-columns:repeat(5,minmax(0,1fr));
@@ -57,22 +57,22 @@ body{
 }
 .card{
   position:relative;
-  height:278px;
+  height:274px;
   border-radius:8px;
   overflow:hidden;
   background:#1f242d;
   border:2px solid #94a3b8;
   display:flex;
   flex-direction:column;
-  box-shadow:0 4px 10px rgba(15,23,42,.10);
+  box-shadow:0 3px 8px rgba(15,23,42,.09);
 }
 .card.rarity-R{border-color:#3b82f6}
 .card.rarity-SR{border-color:#a855f7}
 .card.rarity-SSR{
   border-color:#f59e0b;
-  box-shadow:0 0 0 1px rgba(251,191,36,.45),0 6px 16px rgba(245,158,11,.25);
+  box-shadow:0 0 0 1px rgba(251,191,36,.40),0 5px 14px rgba(245,158,11,.22);
 }
-.rarity-bar{height:5px;width:100%;flex:none}
+.rarity-bar{height:4px;width:100%;flex:none}
 .rarity-R .rarity-bar{background:linear-gradient(90deg,#2563eb,#60a5fa)}
 .rarity-SR .rarity-bar{background:linear-gradient(90deg,#7e22ce,#c084fc)}
 .rarity-SSR .rarity-bar{background:linear-gradient(90deg,#d97706,#fde047,#f59e0b)}
@@ -96,23 +96,18 @@ body{
 }
 .rarity-badge{
   position:absolute;top:6px;left:6px;z-index:2;
-  padding:2px 6px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:.6px;
+  padding:1.5px 5.5px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.4px;
   color:#fff;line-height:1.2;
 }
-.rarity-R .rarity-badge{background:rgba(37,99,235,.92)}
-.rarity-SR .rarity-badge{background:rgba(147,51,234,.92)}
+.rarity-R .rarity-badge{background:rgba(37,99,235,.88)}
+.rarity-SR .rarity-badge{background:rgba(147,51,234,.88)}
 .rarity-SSR .rarity-badge{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}
-.slot-index{
-  position:absolute;top:6px;right:6px;z-index:2;
-  font-size:10px;font-weight:700;color:rgba(255,255,255,.55);
-  background:rgba(15,23,42,.55);padding:1px 5px;border-radius:3px;
-}
 .card-footer{
   flex:none;
-  padding:7px 7px 8px;
+  padding:6px 7px 7px;
   background:rgba(255,255,255,.95);
-  border-top:1px solid rgba(15,23,42,.08);
-  min-height:60px;
+  border-top:1px solid rgba(15,23,42,.07);
+  min-height:56px;
   display:flex;flex-direction:column;justify-content:space-between;gap:4px;
 }
 .char-name{
@@ -120,27 +115,27 @@ body{
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   word-break:break-word;
 }
-.status-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.status-row{display:flex;align-items:center;gap:4px}
 .status-pill{
-  display:inline-block;padding:2px 6px;border-radius:4px;
-  font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;
+  display:inline-block;padding:1.5px 6px;border-radius:4px;
+  font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;
 }
-.status-new{background:#fef3c7;color:#b45309;border:1px solid #f59e0b}
-.status-rank{background:#e2e8f0;color:#1e293b}
+.status-new{background:#fef3c7;color:#92400e;border:1px solid #f59e0b}
+.status-rank{background:#eef2f6;color:#334155}
 .rarity-SSR .status-rank{background:#fef9c3;color:#854d0e}
 .rarity-SR .status-rank{background:#f3e8ff;color:#6b21a8}
 .status-overflow{background:#dcfce7;color:#166534;border:1px solid #86efac}
 .summary-bar{
-  margin-top:14px;padding:10px 14px;
-  background:rgba(255,255,255,.90);
-  border:1px solid #cbd5e1;border-radius:8px;
+  margin-top:12px;padding:8px 14px;
+  background:rgba(255,255,255,.86);
+  border:1px solid #d5dde7;border-radius:7px;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
-  font-size:12.5px;color:#334155;
+  font-size:12px;color:#475569;
 }
 .summary-left,.summary-right{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .chip{
-  background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;
-  padding:3px 8px;font-weight:600;color:#0f172a;white-space:nowrap;
+  background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;
+  padding:2px 7px;font-weight:600;color:#334155;white-space:nowrap;
 }
 .chip.ssr{background:#fef3c7;border-color:#fbbf24;color:#92400e}
 </style>
@@ -153,14 +148,8 @@ body{
 </div>
 <main class="wrap">
   <header class="topbar">
-    <div class="title-group">
-      <span class="title-main">招募结果</span>
-      <span class="title-sub">RECRUITMENT // #{{ session_code }}</span>
-    </div>
-    <div class="owner-meta">
-      <div class="owner-name">{{ owner_name }}</div>
-      <div class="session-meta">{{ created_at_local }} · {{ snapshot_version }}</div>
-    </div>
+    <span class="title-main">招募结果</span>
+    <span class="owner-meta">{{ owner_name }}<span class="sess">#{{ session_code }}</span></span>
   </header>
 
   <section class="grid">
@@ -169,7 +158,6 @@ body{
       <div class="rarity-bar"></div>
       <div class="portrait-box">
         <span class="rarity-badge">{{ card.rarity }}</span>
-        <span class="slot-index">{{ "%02d"|format(card.slot) }}</span>
         {% if card.portrait_data_uri and card.portrait_kind == "mi" %}
           <img class="portrait-mi" src="{{ card.portrait_data_uri }}" alt="{{ card.name }}">
         {% elif card.portrait_data_uri and card.portrait_kind == "si" %}
@@ -193,15 +181,14 @@ body{
 
   <footer class="summary-bar">
     <div class="summary-left">
-      <span class="chip ssr">SSR × {{ ssr_count }}</span>
+      {% if ssr_count > 0 %}<span class="chip ssr">SSR × {{ ssr_count }}</span>{% endif %}
       <span class="chip">金票 +{{ mileage_gained }}</span>
-      <span class="chip">躯体标签 +{{ labels_gained }}</span>
+      {% if labels_gained > 0 %}<span class="chip">标签 +{{ labels_gained }}</span>{% endif %}
     </div>
     <div class="summary-right">
       <span>余票 {{ available_tickets }}</span>
       <span>· 金票 {{ golden_mileage }}</span>
       <span>· 标签 {{ body_labels }}</span>
-      <span>· 累计出率 {{ cumulative_ssr_rate }}</span>
     </div>
   </footer>
 </main>

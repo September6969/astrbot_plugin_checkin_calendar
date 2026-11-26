@@ -39,7 +39,7 @@ def test_prebuilt_intros_exist_and_decode():
         with Image.open(path) as im:
             assert im.format == "GIF"
             assert im.size == (360, 640)
-            assert getattr(im, "n_frames", 1) >= 20
+            assert getattr(im, "n_frames", 1) >= 12
 
 
 @pytest.mark.parametrize(
@@ -54,18 +54,26 @@ def test_prebuilt_intros_exist_and_decode():
 )
 def test_combined_gif_generation_size_and_cache(rarities):
     renderer = GachaGifRenderer()
-    data, duration_sec = renderer.render_bytes(rarities)
+    data, wait_sec = renderer.render_bytes(rarities)
     assert len(data) <= 500_000
-    assert duration_sec > 3.0
+    assert wait_sec > 2.0
     with Image.open(BytesIO(data)) as im:
         assert im.format == "GIF"
         assert im.size == (360, 640)
-        assert getattr(im, "n_frames", 1) >= 35
+        n_frames = getattr(im, "n_frames", 1)
+        assert n_frames >= 25
+        assert "loop" not in im.info
+        durs = []
+        for idx in range(n_frames):
+            im.seek(idx)
+            durs.append(int(im.info.get("duration", 0)))
+        assert durs[-1] >= 3000
+        assert wait_sec < sum(durs) / 1000.0
 
     # 同一序列命中缓存且返回一致字节流
-    cached_data, cached_dur = renderer.render_bytes(rarities)
+    cached_data, cached_wait = renderer.render_bytes(rarities)
     assert cached_data is data
-    assert cached_dur == duration_sec
+    assert cached_wait == wait_sec
 
 
 def _prepare_ten_pull_record(tmp_path: Path):

@@ -24,6 +24,7 @@ def verify(path: Path):
         assert "astrbot_plugin_checkin_calendar/gacha/service.py" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/gacha/engine.py" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/assets/gacha/jp_pool_snapshot.json" in archive.namelist()
+        assert "astrbot_plugin_checkin_calendar/assets/gacha/gate_reference.png" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/assets/gacha/intro_ssr.gif" in archive.namelist()
         assert "astrbot_plugin_checkin_calendar/templates/gacha_result.html" in archive.namelist()
         assert not any("nikke_assets/" in n for n in archive.namelist())
