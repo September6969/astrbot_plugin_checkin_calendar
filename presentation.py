@@ -6,12 +6,24 @@ import json
 import re
 import unicodedata
 from functools import lru_cache
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .store import MonthSnapshot
 
 ROOT = Path(__file__).resolve().parent
+BEIJING_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def is_night_beijing(now: datetime | None = None) -> bool:
+    """按北京时间判断当前是否为夜间（18:00–次日 05:59 为深色模式，06:00–17:59 为浅色模式）。"""
+    current = datetime.now(BEIJING_TZ) if now is None else now.astimezone(BEIJING_TZ)
+    return current.hour < 6 or current.hour >= 18
+
+
+def theme_class(now: datetime | None = None) -> str:
+    return "theme-dark" if is_night_beijing(now) else "theme-light"
 
 
 def clean_name(name: str) -> str:
@@ -52,6 +64,12 @@ def font_faces(text: str) -> list[dict]:
 
 
 @lru_cache(maxsize=1)
+def shared_css() -> str:
+    """抽卡、排行、历史等深色卡片共用的设计变量与基础样式。"""
+    return (ROOT / "templates/_card_base.css").read_text(encoding="utf-8")
+
+
+@lru_cache(maxsize=1)
 def background_data() -> str | None:
     """装饰立绘随包提供；素材缺失时仍可显示完整月历。"""
     path = ROOT / "assets/arcana.webp"
@@ -78,6 +96,7 @@ def payload(snapshot: MonthSnapshot, name: str, today: date, timezone: str, mess
         } for day in week] for week in weeks],
         "fonts": font_faces(clean_name(name) + message),
         "background_art": background_data(),
+        "theme_class": theme_class(),
     }
 
 

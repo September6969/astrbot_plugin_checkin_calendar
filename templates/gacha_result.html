@@ -6,158 +6,55 @@
 <style>
 {% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{ font.data }}') format('woff2');font-display:block;unicode-range:{{ font.unicode_range }}}
 {% endfor %}
-*{box-sizing:border-box}
-html,body{margin:0;width:720px;background:#eceff4;color:#1e2430}
-body{
-  font-family:CalendarSans,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;
-  padding:18px 20px 16px;
-  position:relative;
-  overflow:hidden;
-  background:linear-gradient(165deg,#f3f5f8 0%,#e5e9f0 55%,#dde2ea 100%);
-}
-.bg-grid{
-  position:absolute;inset:0;pointer-events:none;z-index:0;
-  background-image:
-    linear-gradient(to right,rgba(30,41,59,.04) 1px,transparent 1px),
-    linear-gradient(to bottom,rgba(30,41,59,.04) 1px,transparent 1px);
-  background-size:36px 36px;
-}
-.bg-watermark{
-  position:absolute;left:-14px;right:-14px;top:40px;bottom:28px;
-  display:flex;align-items:center;justify-content:center;
-  pointer-events:none;z-index:0;user-select:none;overflow:hidden;
-}
-.bg-watermark .big-n{
-  font-size:420px;font-weight:900;letter-spacing:-18px;
-  color:rgba(15,23,42,.04);line-height:1;
-}
-.bg-watermark .nikke-band{
-  position:absolute;left:0;right:0;text-align:center;
-  font-size:126px;font-weight:900;letter-spacing:22px;
-  color:rgba(15,23,42,.045);line-height:1;
-}
-.wrap{position:relative;z-index:1}
-.topbar{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:12px;padding:8px 14px;
-  background:rgba(255,255,255,.82);
-  border:1px solid #d5dde7;border-left:4px solid #334155;
-  border-radius:7px;
-}
-.title-main{font-size:18px;font-weight:700;color:#0f172a;letter-spacing:.8px;white-space:nowrap}
-.owner-meta{
-  font-size:13px;font-weight:500;color:#475569;
-  max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.owner-meta .sess{color:#94a3b8;margin-left:8px;font-size:12px}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
-  gap:10px;
-}
-.card{
-  position:relative;
-  height:274px;
-  border-radius:8px;
-  overflow:hidden;
-  background:#1f242d;
-  border:2px solid #94a3b8;
-  display:flex;
-  flex-direction:column;
-  box-shadow:0 3px 8px rgba(15,23,42,.09);
-}
-.card.rarity-R{border-color:#3b82f6}
-.card.rarity-SR{border-color:#a855f7}
-.card.rarity-SSR{
-  border-color:#f59e0b;
-  box-shadow:0 0 0 1px rgba(251,191,36,.40),0 5px 14px rgba(245,158,11,.22);
-}
-.rarity-bar{height:4px;width:100%;flex:none}
-.rarity-R .rarity-bar{background:linear-gradient(90deg,#2563eb,#60a5fa)}
-.rarity-SR .rarity-bar{background:linear-gradient(90deg,#7e22ce,#c084fc)}
-.rarity-SSR .rarity-bar{background:linear-gradient(90deg,#d97706,#fde047,#f59e0b)}
-.portrait-box{
-  position:relative;flex:1;min-height:0;overflow:hidden;
-  background:#181c24;display:flex;align-items:center;justify-content:center;
-}
-.rarity-R .portrait-box{background:radial-gradient(circle at 50% 35%,#1e3a5f,#141923 80%)}
-.rarity-SR .portrait-box{background:radial-gradient(circle at 50% 35%,#3b1f5e,#171524 80%)}
-.rarity-SSR .portrait-box{background:radial-gradient(circle at 50% 35%,#5b3f10,#1d1914 82%)}
-.portrait-mi{
-  width:100%;height:100%;object-fit:cover;object-position:center 12%;display:block;
-}
-.portrait-si{
-  width:84px;height:84px;border-radius:14px;object-fit:cover;
-  border:2px solid rgba(255,255,255,.35);
-  box-shadow:0 6px 14px rgba(0,0,0,.45);
-}
-.portrait-placeholder{
-  width:72px;height:112px;opacity:.75;
-}
-.rarity-badge{
-  position:absolute;top:6px;left:6px;z-index:2;
-  padding:1.5px 5.5px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.4px;
-  color:#fff;line-height:1.2;
-}
-.rarity-R .rarity-badge{background:rgba(37,99,235,.88)}
-.rarity-SR .rarity-badge{background:rgba(147,51,234,.88)}
-.rarity-SSR .rarity-badge{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}
-.card-footer{
-  flex:none;
-  padding:6px 7px 7px;
-  background:rgba(255,255,255,.95);
-  border-top:1px solid rgba(15,23,42,.07);
-  min-height:56px;
-  display:flex;flex-direction:column;justify-content:space-between;gap:4px;
-}
-.char-name{
-  font-size:12px;font-weight:700;color:#0f172a;line-height:1.25;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  word-break:break-word;
-}
-.status-row{display:flex;align-items:center;gap:4px}
-.status-pill{
-  display:inline-block;padding:1.5px 6px;border-radius:4px;
-  font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;
-}
-.status-new{background:#fef3c7;color:#92400e;border:1px solid #f59e0b}
-.status-rank{background:#eef2f6;color:#334155}
-.rarity-SSR .status-rank{background:#fef9c3;color:#854d0e}
-.rarity-SR .status-rank{background:#f3e8ff;color:#6b21a8}
-.status-overflow{background:#dcfce7;color:#166534;border:1px solid #86efac}
-.summary-bar{
-  margin-top:12px;padding:8px 14px;
-  background:rgba(255,255,255,.86);
-  border:1px solid #d5dde7;border-radius:7px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  font-size:12px;color:#475569;
-}
-.summary-left,.summary-right{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.chip{
-  background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;
-  padding:2px 7px;font-weight:600;color:#334155;white-space:nowrap;
-}
-.chip.ssr{background:#fef3c7;border-color:#fbbf24;color:#92400e}
+{{ base_css|safe }}
+.replay{margin-bottom:12px;padding:8px 14px;border-radius:8px;background:var(--info-bg);border:1px solid var(--info-b);color:var(--info-t);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.card{position:relative;height:292px;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;
+  background:var(--card-bg);border:1.5px solid color-mix(in srgb,var(--c) 65%,var(--card-bg))}
+.card.r-SR{box-shadow:0 0 14px rgba(179,108,255,.22)}
+.card.r-SSR{border-color:#ffd166;box-shadow:0 0 0 1px rgba(255,209,102,.5),0 0 22px rgba(255,191,60,.42)}
+.theme-light .card.r-SSR{border-color:#f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.45),0 6px 18px rgba(245,158,11,.28)}
+.portrait{position:relative;flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--c) 38%,var(--card-pt)) 0,var(--card-pt) 78%)}
+.r-SSR .portrait::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,236,170,.32) 46%,transparent 60%)}
+.r-SSR .portrait::before{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;z-index:1;pointer-events:none;
+  background:linear-gradient(to top,rgba(255,191,60,.36),transparent)}
+.portrait-mi{width:100%;height:100%;object-fit:cover;object-position:center 10%;display:block}
+.portrait-si{width:100px;height:100px;border-radius:16px;object-fit:cover;border:2px solid rgba(255,255,255,.45);box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.portrait-placeholder{width:72px;height:112px;opacity:.6}
+.slot{position:absolute;top:6px;right:7px;z-index:2;font-size:12px;font-weight:700;color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.theme-light .slot{color:var(--muted);text-shadow:none}
+.rar{position:absolute;top:6px;left:6px;z-index:2;padding:1px 7px;border-radius:4px;font-size:12px;font-weight:800;color:#10131a;background:var(--c)}
+.r-SSR .rar{background:linear-gradient(135deg,#ffd166,#ff9f1c)}
+.ribbon{position:absolute;left:0;bottom:8px;z-index:2;padding:2px 10px 2px 8px;border-radius:0 6px 6px 0;font-size:12px;font-weight:800;color:#fff;background:var(--new)}
+.foot{flex:none;padding:7px 8px 8px;background:var(--card-foot);border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:5px;min-height:62px}
+.name{font-size:13px;font-weight:700;line-height:1.3;color:var(--text-strong);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.st{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted)}
+.st.status-rank{color:var(--ct)}
+.st.status-new{color:var(--new-text)}
+.st.status-overflow{color:var(--overflow)}
+.sum{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;font-size:14px;color:var(--muted)}
+.sum .l,.sum .r{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sum b{color:var(--text-strong);font-variant-numeric:tabular-nums}
+.sum .ssr b{color:var(--gold);font-size:18px}
+.meta{display:flex;justify-content:space-between;margin-top:10px;padding:0 4px;font-size:12px;color:var(--muted-2)}
 </style>
 </head>
-<body>
-<div class="bg-grid" aria-hidden="true"></div>
-<div class="bg-watermark" aria-hidden="true">
-  <div class="big-n">N</div>
-  <div class="nikke-band">NIKKE</div>
-</div>
-<main class="wrap">
-  <header class="topbar">
-    <span class="title-main">招募结果</span>
-    <span class="owner-meta">{{ owner_name }}<span class="sess">#{{ session_code }}</span></span>
+<body class="{{ theme_class|default('theme-dark') }}">
+<div class="wrap">
+  <header class="hd">
+    <div><div class="en">RECRUIT RESULT</div><h1>招募结果</h1></div>
+    <div class="sub">{{ owner_name }} · #{{ session_code }}<br>{{ created_at_local }}</div>
   </header>
+  {% if replay %}<div class="replay">这条消息已处理，以下为当时的结果，未重复消耗资格</div>{% endif %}
 
   <section class="grid">
     {% for card in cards %}
-    <article class="card rarity-{{ card.rarity }}">
-      <div class="rarity-bar"></div>
-      <div class="portrait-box">
-        <span class="rarity-badge">{{ card.rarity }}</span>
+    <article class="card r-{{ card.rarity }}">
+      <div class="portrait">
+        <span class="rar">{{ card.rarity }}</span>
+        <span class="slot">{{ '%02d' % card.slot }}</span>
         {% if card.portrait_data_uri and card.portrait_kind == "mi" %}
           <img class="portrait-mi" src="{{ card.portrait_data_uri }}" alt="{{ card.name }}">
         {% elif card.portrait_data_uri and card.portrait_kind == "si" %}
@@ -168,30 +65,32 @@ body{
             <path d="M14 50c0-10 8-16 18-16s18 6 18 16l-4 34c-1 6-6 9-14 9s-13-3-14-9z" fill="rgba(255,255,255,0.34)"/>
           </svg>
         {% endif %}
+        {% if card.status_class == 'status-new' %}<span class="ribbon">NEW</span>{% endif %}
       </div>
-      <div class="card-footer">
-        <div class="char-name">{{ card.name }}</div>
-        <div class="status-row">
-          <span class="status-pill {{ card.status_class }}">{{ card.status_label }}</span>
-        </div>
+      <div class="foot">
+        <div class="name">{{ card.name }}</div>
+        <div class="st {{ card.status_class }}">{% if card.status_class == 'status-new' %}首次收录{% else %}{{ card.status_label }}{% endif %}</div>
       </div>
     </article>
     {% endfor %}
   </section>
 
-  <footer class="summary-bar">
-    <div class="summary-left">
-      {% if ssr_count > 0 %}<span class="chip ssr">SSR × {{ ssr_count }}</span>{% endif %}
-      <span class="chip">金票 +{{ mileage_gained }}</span>
-      {% if labels_gained > 0 %}<span class="chip">标签 +{{ labels_gained }}</span>{% endif %}
+  <footer class="panel sum">
+    <div class="l">
+      <span class="ssr r-SSR"><span class="dot"></span>SSR <b>{{ ssr_count }}</b></span>
+      <span class="r-SR"><span class="dot"></span>SR <b>{{ sr_count }}</b></span>
+      <span class="r-R"><span class="dot"></span>R <b>{{ r_count }}</b></span>
+      <span>金票 <b>+{{ mileage_gained }}</b></span>
+      {% if labels_gained > 0 %}<span>标签 <b>+{{ labels_gained }}</b></span>{% endif %}
     </div>
-    <div class="summary-right">
-      <span>余票 {{ available_tickets }}</span>
-      <span>· 金票 {{ golden_mileage }}</span>
-      <span>· 标签 {{ body_labels }}</span>
+    <div class="r">
+      <span>余票 <b>{{ available_tickets }}</b></span>
+      <span>金票 <b>{{ golden_mileage }}</b></span>
+      <span>标签 <b>{{ body_labels }}</b></span>
     </div>
   </footer>
-</main>
+  <div class="meta"><span>累计 SSR 出率 {{ cumulative_ssr_rate }}</span><span>卡池 {{ snapshot_version }}</span></div>
+</div>
 </body>
 </html>
 {% endautoescape %}

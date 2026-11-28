@@ -1,0 +1,28 @@
+{% autoescape true %}<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+{% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{font.data}}') format('woff2');font-display:block;unicode-range:{{font.unicode_range}}}{% endfor %}
+{{ base_css|safe }}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.shop h3{margin:0;font-size:20px;color:var(--text-strong)}
+.shop .cost{font-size:14px;color:var(--muted);margin:4px 0 12px;line-height:1.6}
+.shop .nums{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:6px}
+.shop .nums b{font-size:20px;color:var(--text-strong);font-variant-numeric:tabular-nums}
+.cmd{display:inline-block;margin-top:12px;padding:3px 10px;border-radius:6px;background:var(--cmd-bg);font-size:13px;color:var(--text-soft)}
+.ups{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.up{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:var(--up-bg);border:1px solid var(--up-b)}
+.up .im{width:64px;height:84px;flex:none;border-radius:8px;overflow:hidden;background:var(--card-pt);display:flex;align-items:center;justify-content:center}
+.up img.mi{width:100%;height:100%;object-fit:cover;object-position:center 10%}
+.up img.si{width:56px;height:56px;border-radius:10px;object-fit:cover}
+.up .n{font-size:15px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;color:var(--text-strong)}
+.up .d{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
+.note{color:var(--muted);font-size:15px;padding:6px 0}
+</style></head><body class="{{ theme_class|default('theme-dark') }}"><div class="wrap">
+<header class="hd"><div><div class="en">SHOP</div><h1>里程与铸模商店</h1></div><div class="sub">可用十连 {{tickets}} 次<br>打卡进度 {{checkin_progress}} / 2{% if debt %} · 待抵扣 {{debt}} 次{% endif %}</div></header>
+<section class="two">
+<div class="panel shop r-SSR"><h3>完美铸模</h3><div class="cost">6000 躯体标签 → 必得 1 位铸模池 SSR</div><div class="nums"><span>躯体标签</span><b>{{labels}} / 6000</b></div><div class="bar"><i style="width:{{mold_pct}}%"></i></div><span class="cmd">🦌 铸模</span></div>
+<div class="panel shop r-SR"><h3>黄金里程兑换</h3><div class="cost">200 金票 → 兑换当期 UP SSR</div><div class="nums"><span>黄金里程券</span><b>{{mileage}} / 200</b></div><div class="bar"><i style="width:{{mileage_pct}}%"></i></div><span class="cmd">🦌 兑换 角色名</span></div>
+</section>
+<section class="panel"><h2>当期 UP 兑换名单</h2>
+{% if ups %}<div class="ups">{% for u in ups %}<div class="up"><div class="im">{% if u.uri and u.kind == 'mi' %}<img class="mi" src="{{u.uri}}" alt="">{% elif u.uri %}<img class="si" src="{{u.uri}}" alt="">{% endif %}</div><div><div class="n">{{u.name}}</div><div class="d">{{u.banner}}<br>截至 {{u.until}}</div></div></div>{% endfor %}</div>{% endif %}
+{% if note %}<div class="note">{{note}}</div>{% endif %}</section>
+</div></body></html>
+{% endautoescape %}

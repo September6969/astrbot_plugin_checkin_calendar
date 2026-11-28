@@ -3,7 +3,7 @@ import asyncio
 import hashlib
 from dataclasses import replace
 
-from .presentation import clean_name, font_faces
+from .presentation import clean_name, font_faces, shared_css, theme_class
 
 
 async def resolve_names(snapshot, event, store):
@@ -38,10 +38,14 @@ def ranking_payload(snapshot):
         'total': e.total, 'days': e.days,
         'color': ['#be252a','#c63832','#d54d39','#df6543','#e67c4c','#ed9558','#efac67','#f3bd74','#f6ce83','#f6da92'][i],
     } for i, e in enumerate(snapshot.entries)]
+    top = max((r['total'] for r in rows), default=0)
+    for r in rows:
+        r['pct'] = round(r['total'] / top * 100, 1) if top > 0 else 0
     title = f'{year}年{month}月 🦌馆排行榜'
     text = title + '总次数参与人数次天暂无记录机器人全部用户仅展示前十名按次数活跃天数排序匿名昵称暂未获取' + ''.join(r['name'] for r in rows)
     return {'title':title, 'month':snapshot.month, 'total':snapshot.total, 'participants':snapshot.participants,
-            'rows':rows, 'fonts':font_faces(text), 'unknown_names':any(not e.name for e in snapshot.entries)}
+            'rows':rows, 'fonts':font_faces(text), 'unknown_names':any(not e.name for e in snapshot.entries),
+            'base_css':shared_css(), 'theme_class':theme_class()}
 
 
 def ranking_text(data):

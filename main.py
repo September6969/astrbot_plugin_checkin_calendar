@@ -33,6 +33,7 @@ from .gacha.commands import (
     handle_exchange_command,
     handle_mold_command,
 )
+from .gacha.views import build_pokedex_payload, build_shop_payload, build_stats_payload
 from .gacha.presentation import GachaGifRenderer, orchestrate_ten_pull_presentation
 from .gacha.repository import GachaRepository, InsufficientTicketsError
 from .gacha.rewards import apply_checkin_event
@@ -261,6 +262,23 @@ class CheckinCalendarPlugin(Star):
         reply = event.make_result().use_t2i(False).at(clean_name(name), user).message("\n")
         yield reply.url_image(image) if image.startswith("http") else reply.file_image(image)
 
+    async def _gacha_card(self, event, template_name, build, text_fn):
+        """渲染抽卡信息卡；数据不适用或渲染失败时退回纯文本。"""
+        try:
+            data = await asyncio.to_thread(build)
+            if data is not None:
+                template = (Path(__file__).parent / "templates" / template_name).read_text(encoding="utf-8")
+                options = {"prefix": "gacha-card", "output_format": "webp", "target_bytes": 220_000, "soft_cap_bytes": 380_000}
+                image = await asyncio.wait_for(self.calendar_renderer.render(template, data, options), timeout=30)
+                if isinstance(image, str) and image.strip():
+                    return event.make_result().use_t2i(False).file_image(image)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[妮姬招募] %s 图片生成失败：%s", template_name, type(exc).__name__)
+        text = await asyncio.to_thread(text_fn)
+        return event.make_result().message(text).use_t2i(False)
+
     async def _handle_gacha(self, event: AstrMessageEvent, action: str, args: list[str]):
         platform = str(event.get_platform_id() or "")
         bot = str(event.get_self_id() or "")
@@ -281,21 +299,30 @@ class CheckinCalendarPlugin(Star):
         message_id = str(getattr(event.message_obj, "message_id", "") or "")
 
         if action == "图鉴":
-            text = await asyncio.to_thread(format_pokedex, self.gacha_service, actor, args, self.timezone)
-            return event.make_result().message(text).use_t2i(False)
+            return await self._gacha_card(
+                event, "pokedex.html",
+                lambda: build_pokedex_payload(self.gacha_service, actor, args, self.gacha_assets),
+                lambda: format_pokedex(self.gacha_service, actor, args, self.timezone),
+            )
         if action == "抽卡历史":
             text = await asyncio.to_thread(format_gacha_history, self.gacha_service, actor, args, self.timezone)
             return event.make_result().message(text).use_t2i(False)
         if action == "统计":
             if args:
                 return event.make_result().message("用法：🦌 统计").use_t2i(False)
-            text = await asyncio.to_thread(format_stats, self.gacha_service, actor, self.timezone)
-            return event.make_result().message(text).use_t2i(False)
+            return await self._gacha_card(
+                event, "stats.html",
+                lambda: build_stats_payload(self.gacha_service, actor),
+                lambda: format_stats(self.gacha_service, actor, self.timezone),
+            )
         if action == "商店":
             if args:
                 return event.make_result().message("用法：🦌 商店").use_t2i(False)
-            text = await asyncio.to_thread(format_shop, self.gacha_service, actor, now, self.timezone)
-            return event.make_result().message(text).use_t2i(False)
+            return await self._gacha_card(
+                event, "shop.html",
+                lambda: build_shop_payload(self.gacha_service, actor, now, self.timezone, self.gacha_assets),
+                lambda: format_shop(self.gacha_service, actor, now, self.timezone),
+            )
         if action == "铸模":
             if args:
                 return event.make_result().message("用法：🦌 铸模").use_t2i(False)

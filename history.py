@@ -3,7 +3,7 @@
 import re
 from datetime import date, datetime
 
-from .presentation import clean_name, format_probability, parse_month
+from .presentation import clean_name, format_probability, parse_month, shared_css, theme_class
 from .store import HistorySnapshot
 
 TITLE = "历史判定记录"
@@ -64,7 +64,12 @@ def history_payload(snapshot: HistorySnapshot, name: str, display_zone) -> dict:
             "state": "blast" if record.result == "blasted" else ("undone" if record.undone else "passed"),
             "result": "炸膛" if record.result == "blasted" else "正常通过",
             "undone": bool(record.undone), "risk": risk(record.risk_percent, "未知"),
+            "risk_value": 0.0 if record.risk_percent is None else max(0.0, float(record.risk_percent)),
         })
+    # 风险条按本页最高值缩放（至少以 10% 为满格），避免低概率时全部看不见。
+    scale = max(10.0, max((row["risk_value"] for row in rows), default=0.0))
+    for row in rows:
+        row["risk_pct"] = round(min(100.0, row.pop("risk_value") / scale * 100), 1)
     return {
         "title": TITLE, "name": clean_name(name), "range": snapshot.month or "全部日期",
         "filter": "仅炸膛" if snapshot.blast_only else "全部判定", "metrics": metrics, "rows": rows,
@@ -73,6 +78,8 @@ def history_payload(snapshot: HistorySnapshot, name: str, display_zone) -> dict:
         "empty": "所选月份没有炸膛记录" if snapshot.month and snapshot.blast_only else (
             "暂无炸膛记录" if snapshot.blast_only else "所选范围暂无有效判定"),
         "notes": [f"时区 {display_zone}。{TIME_NOTE}", LEGACY_NOTE],
+        "base_css": shared_css(),
+        "theme_class": theme_class(),
     }
 
 

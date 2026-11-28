@@ -35,9 +35,25 @@ body{font-family:CalendarSans,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;pa
 .legend{display:flex;justify-content:center;align-items:center;gap:7px;margin-top:23px;color:#a1a398;font-size:13px}
 .swatch{width:15px;height:15px;border-radius:4px;display:inline-block}.zero{background:#f1f2ef}
 .empty{font-size:17px;text-align:center;margin:20px 0 0;color:#979b8d}
+body.theme-dark{background:#12161f;color:#e8ecf4}
+body.theme-dark .watermark{opacity:.14}
+body.theme-dark .status{background:rgba(245,184,74,.14);color:#ffd57a}
+body.theme-dark .mark{background:rgba(245,184,74,.16)}
+body.theme-dark .eyebrow,body.theme-dark .stat .label,body.theme-dark .monthbar span,body.theme-dark .weekdays,body.theme-dark .legend,body.theme-dark .empty{color:#8d98ad}
+body.theme-dark .stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+body.theme-dark .stat strong small{color:#8d98ad}
+body.theme-dark .cell{background:rgba(255,255,255,.06)}
+body.theme-dark .cell.future{background:rgba(255,255,255,.03)}
+body.theme-dark .cell .day{color:#7d889e}
+body.theme-dark .cell.today{outline-color:#ffd166}
+body.theme-dark .cell.today .day{color:#ffd166}
+body.theme-dark .level1{background:#473d1d}body.theme-dark .level2{background:#68521c}body.theme-dark .level3{background:#8f6517}body.theme-dark .level4{background:#b8681f}body.theme-dark .level5{background:#c24b33}
+body.theme-dark .level1 .day,body.theme-dark .level2 .day,body.theme-dark .level3 .day,body.theme-dark .level4 .day,body.theme-dark .level5 .day{color:#f5d89a}
+body.theme-dark .level1 .count,body.theme-dark .level2 .count,body.theme-dark .level3 .count,body.theme-dark .level4 .count,body.theme-dark .level5 .count{color:#fff7e6}
+body.theme-dark .zero{background:rgba(255,255,255,.08)}
 </style>
 </head>
-<body>
+<body class="{{ theme_class|default('theme-light') }}">
 {% if background_art %}<div class="art-layer" aria-hidden="true"><div class="watermark"><img src="{{ background_art }}" alt=""></div></div>{% endif %}
 <main class="content">
 {% if message %}<div class="status">{{ message }}{% if message == '记录成功' %} · 本月第 {{ total }} 次{% endif %}</div>{% endif %}

@@ -127,7 +127,7 @@ class CalendarRenderer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         # 只清理本渲染器一天前的临时图，给消息上传留出时间。
         cutoff = time.time() - 86400
-        for pattern in ('calendar-*.png', 'gacha-result-*'):
+        for pattern in ('calendar-*.png', 'gacha-result-*', 'gacha-card-*'):
             for path in self.output_dir.glob(pattern):
                 try:
                     if path.stat().st_mtime < cutoff:

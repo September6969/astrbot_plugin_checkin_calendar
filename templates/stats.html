@@ -1,0 +1,29 @@
+{% autoescape true %}<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+{% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{font.data}}') format('woff2');font-display:block;unicode-range:{{font.unicode_range}}}{% endfor %}
+{{ base_css|safe }}
+.hero{display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-bottom:14px}
+.big{font-size:56px;font-weight:800;line-height:1.05;color:var(--gold);font-variant-numeric:tabular-nums}
+.cap{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6}
+.stack{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--track);margin:12px 0 10px}
+.stack i{display:block;height:100%}
+.leg{display:flex;gap:16px;font-size:14px;color:var(--muted)}
+.leg b{color:var(--text-strong);font-variant-numeric:tabular-nums}
+.pair{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:15px;color:var(--muted)}
+.pair:last-child{border-bottom:0}
+.pair b{font-size:19px;color:var(--text-strong);font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+</style></head><body class="{{ theme_class|default('theme-dark') }}"><div class="wrap">
+<header class="hd"><div><div class="en">STATISTICS</div><h1>个人招募统计</h1></div><div class="sub">算法 {{algorithm}}</div></header>
+<section class="hero">
+<div class="panel"><h2>实际 SSR 出率</h2><div class="big">{{actual_rate}}</div><div class="cap">理论期望 {{expected}} 位 · 偏差 {{deviation}}<br>累计正常招募 {{total_pulls}} 抽</div></div>
+<div class="panel"><h2>下一抽</h2><div class="big" style="color:var(--text-strong)">{{next_rate}}</div><div class="cap">SSR 仓检概率<br>连续未出 {{streak}} 抽 · 历史最长 {{max_streak}} 抽</div></div>
+</section>
+<section class="panel" style="margin-bottom:14px"><h2>稀有度构成</h2>
+<div class="stack"><i style="width:{{ssr_pct}}%;background:#ffbf3c"></i><i style="width:{{sr_pct}}%;background:#b36cff"></i><i style="width:{{r_pct}}%;background:#4f9dff"></i></div>
+<div class="leg"><span class="r-SSR"><span class="dot"></span>SSR <b>{{ssr}}</b></span><span class="r-SR"><span class="dot"></span>SR <b>{{sr}}</b></span><span class="r-R"><span class="dot"></span>R <b>{{r}}</b></span></div></section>
+<section class="two">
+<div class="panel"><h2>资格</h2><div class="pair"><span>可用十连</span><b>{{tickets}} 次</b></div><div class="pair"><span>打卡进度</span><b>{{checkin_progress}} / 2</b></div>{% if debt %}<div class="pair"><span>待抵扣</span><b>{{debt}} 次</b></div>{% endif %}</div>
+<div class="panel"><h2>纪录</h2><div class="pair"><span>单次十连最多 SSR</span><b>{{max_ssr_ten}} 位</b></div><div class="pair"><span>完美铸模开启</span><b>{{mold_count}} 次</b></div><div class="pair"><span>黄金里程兑换</span><b>{{exchange_count}} 次</b></div></div>
+</section>
+</div></body></html>
+{% endautoescape %}

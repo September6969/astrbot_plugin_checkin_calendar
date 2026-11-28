@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from astrbot.api import logger
 from PIL import Image, ImageDraw, ImageFilter
 
-from ..presentation import clean_name, font_faces
+from ..presentation import clean_name, font_faces, shared_css, theme_class
 from .assets import PortraitAssetResolver
 from .collection import format_collection_rank
 from .commands import format_ten_pull_text
@@ -143,7 +143,12 @@ def build_result_image_payload(
         "golden_mileage": record.wallet.golden_mileage,
         "body_labels": record.wallet.body_labels,
         "cumulative_ssr_rate": rate_str,
-        "fonts": font_faces("".join(text_samples)),
+        "sr_count": record.sr_count,
+        "r_count": record.r_count,
+        "replay": bool(record.replay),
+        "base_css": shared_css(),
+        "theme_class": theme_class(),
+        "fonts": font_faces("".join(text_samples) + created_local + "这条消息已处理，以下为当时的结果，未重复消耗资格累计卡池首次收录"),
     }
 
 

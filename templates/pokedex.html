@@ -1,0 +1,32 @@
+{% autoescape true %}<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+{% for font in fonts %}@font-face{font-family:CalendarSans;src:url('{{font.data}}') format('woff2');font-display:block;unicode-range:{{font.unicode_range}}}{% endfor %}
+{{ base_css|safe }}
+.prog{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.prog .p{padding:11px 14px}
+.prog .t{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:8px}
+.prog .t b{color:var(--text-strong);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.c{height:196px;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;background:var(--card-bg);border:1.5px solid color-mix(in srgb,var(--c) 60%,var(--card-bg));position:relative}
+.c.r-SSR{border-color:#ffd166;box-shadow:0 0 14px rgba(255,191,60,.32)}
+.theme-light .c.r-SSR{border-color:#f59e0b}
+.c .pt{flex:1;min-height:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--c) 34%,var(--card-pt)),var(--card-pt) 78%)}
+.c img.mi{width:100%;height:100%;object-fit:cover;object-position:center 10%}
+.c img.si{width:84px;height:84px;border-radius:14px;object-fit:cover;border:2px solid rgba(255,255,255,.35)}
+.c.lock img{filter:brightness(0) opacity(.28)}
+.c.lock .pt{background:var(--card-pt)}
+.c .tag{position:absolute;top:5px;left:5px;z-index:2}
+.c .q{position:absolute;right:7px;top:6px;z-index:2;font-size:20px;color:var(--q);font-weight:800}
+.c .f{padding:6px 8px 7px;background:var(--card-foot);border-top:1px solid var(--line-soft);min-height:52px}
+.c .n{font-size:13px;font-weight:700;line-height:1.3;color:var(--text-strong);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.c.lock .n{color:var(--muted-2)}
+.c .s{font-size:12px;color:var(--ct);margin-top:3px;white-space:nowrap;overflow:hidden}
+.c.lock .s{color:var(--muted-2)}
+.pgn{margin-top:14px;text-align:center;font-size:15px;font-weight:700;color:var(--text-soft)}
+</style></head><body class="{{ theme_class|default('theme-dark') }}"><div class="wrap">
+<header class="hd"><div><div class="en">POKEDEX</div><h1>妮姬收藏图鉴</h1></div><div class="sub">收藏 {{owned_total}} / {{all_total}}<br>{{filter}}</div></header>
+<section class="prog">{% for p in progress %}<div class="panel p r-{{p.rarity}}"><div class="t"><span><span class="dot"></span>{{p.rarity}}</span><b>{{p.owned}} / {{p.total}}</b></div><div class="bar"><i style="width:{{p.pct}}%"></i></div></div>{% endfor %}</section>
+<section class="grid">{% for c in cards %}<article class="c r-{{c.rarity}}{% if not c.owned %} lock{% endif %}"><div class="pt"><span class="tag">{{c.rarity}}</span>{% if not c.owned %}<span class="q">?</span>{% endif %}{% if c.uri and c.kind == 'mi' %}<img class="mi" src="{{c.uri}}" alt="">{% elif c.uri %}<img class="si" src="{{c.uri}}" alt="">{% endif %}</div><div class="f"><div class="n">{{c.name}}</div><div class="s">{% if c.owned %}{{c.rank}}{% else %}{{c.corp}}{% endif %}</div></div></article>{% endfor %}</section>
+<div class="pgn">第 {{page}} / {{pages}} 页</div>
+<div class="ft">🦌 图鉴 [页码 | SSR/SR/R | 企业 | 未拥有 | 角色名]</div>
+</div></body></html>
+{% endautoescape %}

@@ -116,8 +116,9 @@ async def test_legacy_db_migration_backup_and_end_to_end_flow(tmp_path: Path, mo
     assert len(pull_replies) == 1
     assert any(isinstance(seg, Image) for seg in pull_replies[0].chain)
 
-    pokedex_text = _extract_text((await _run_cmd(plugin, "🦌 图鉴", "m-dex"))[0])
-    assert "【妮姬收藏图鉴】" in pokedex_text
+    dex_reply = (await _run_cmd(plugin, "🦌 图鉴", "m-dex"))[0]
+    assert any(isinstance(seg, Image) for seg in dex_reply.chain)
+    assert plugin.calendar_renderer.render.call_args_list[-1].args[1]["owned_total"] > 0
 
     hist_text = _extract_text((await _run_cmd(plugin, "🦌 抽卡历史", "m-gh"))[0])
     assert "#0001" in hist_text
@@ -125,11 +126,13 @@ async def test_legacy_db_migration_backup_and_end_to_end_flow(tmp_path: Path, mo
     detail_text = _extract_text((await _run_cmd(plugin, "🦌 抽卡历史 0001", "m-gh-1"))[0])
     assert "【十连招募结果 #0001】" in detail_text
 
-    stats_text = _extract_text((await _run_cmd(plugin, "🦌 统计", "m-stat"))[0])
-    assert "累计正常招募：10 抽" in stats_text
+    stats_reply = (await _run_cmd(plugin, "🦌 统计", "m-stat"))[0]
+    assert any(isinstance(seg, Image) for seg in stats_reply.chain)
+    assert plugin.calendar_renderer.render.call_args_list[-1].args[1]["total_pulls"] == 10
 
-    shop_text = _extract_text((await _run_cmd(plugin, "🦌 商店", "m-shop"))[0])
-    assert "黄金里程券：10 张" in shop_text
+    shop_reply = (await _run_cmd(plugin, "🦌 商店", "m-shop"))[0]
+    assert any(isinstance(seg, Image) for seg in shop_reply.chain)
+    assert plugin.calendar_renderer.render.call_args_list[-1].args[1]["mileage"] == 10
 
     help_text = _extract_text((await _run_cmd(plugin, "🦌 帮助", "m-help"))[0])
     assert "🦌 十连 快速" in help_text

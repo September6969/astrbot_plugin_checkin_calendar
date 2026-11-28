@@ -17,7 +17,7 @@ def build(output: Path):
         or (
             p.relative_to(ROOT).parts[0] in {"assets", "templates", "scripts", "tests", "gacha"}
             and "__pycache__" not in p.parts
-            and p.suffix in {".py", ".html", ".woff2", ".ttf", ".png", ".webp", ".gif", ".json", ".md", ".txt"}
+            and p.suffix in {".py", ".html", ".css", ".woff2", ".ttf", ".png", ".webp", ".gif", ".json", ".md", ".txt"}
         )
     )]
     manifest = {}
